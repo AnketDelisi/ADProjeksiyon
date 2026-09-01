@@ -2644,14 +2644,57 @@ function buildTrendSvg(df, tabloPartileri){
     svg+=`<text x="${sxMs(d.getTime())}" y="${h-padB+20}" text-anchor="middle" fill="#71716E" font-size="12" font-weight="700">${String(d.getDate()).padStart(2,'0')} ${POLL_MONTH_SHORT_EN[d.getMonth()]}</text>`;
   }
   const labelPool=[];
+  svg+=`<text x="${padL}" y="16" fill="#71716E" font-size="12" font-weight="700">Gölgeli bant: %90 güven aralığı (örneklem + firma farkı)</text>`;
   for (const p of tabloPartileri){
     const sub=withDate.filter(r=>r[p]!=null&&!isNaN(r[p])&&isFinite(r[p]));
     if (!sub.length) continue;
     const color=PARTY_COLORS[p]||'#888888';
-    for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
     const lx=sub.map(s=>(s.Tarih_Formatli.getTime()-tsMin)/86400000);
     const ly=sub.map(s=>s[p]);
     const res=lowessSmooth(lx,ly,0.4);
+    // 90% confidence band: Gaussian-kernel weighted local mean/variance (adaptive sigma),
+    // sampling variance estimated from each poll's MAE (s2 = (MAE/1.96)^2).
+    const SIGMA0=14.0, SIGMA_CAP=84.0, Z90=1.645;
+    const bandPts=[];
+    for (let gi=0; gi<res.xs.length; gi++){
+      const xd=res.xs[gi];
+      if (xd==null||isNaN(xd)||!isFinite(xd)) continue;
+      const dists=lx.map(x=>Math.abs(x-xd)).sort((a,b)=>a-b);
+      let nIn=0; for (const d of dists) if (d<=SIGMA0) nIn++;
+      let sigma=SIGMA0;
+      if (nIn<3) sigma=Math.min(SIGMA_CAP, dists.length>=3?dists[2]:SIGMA_CAP);
+      const ws=[]; let wSum=0;
+      for (let i=0;i<lx.length;i++){ const w=Math.exp(-0.5*Math.pow((lx[i]-xd)/sigma,2)); ws.push(w); wSum+=w; }
+      if (wSum<=0) continue;
+      let contributing=0; for (const w of ws) if (w>0.01) contributing++;
+      if (contributing<2) continue;
+      let mu=0; for (let i=0;i<lx.length;i++) mu+=ws[i]*ly[i];
+      mu/=wSum;
+      let vLoc=0; for (let i=0;i<lx.length;i++) vLoc+=ws[i]*Math.pow(ly[i]-mu,2);
+      vLoc/=wSum;
+      let vSamp=0;
+      for (let i=0;i<lx.length;i++){
+        const mae=sub[i].Hesaplanan_MAE>0?sub[i].Hesaplanan_MAE:2.5;
+        vSamp+=ws[i]*ws[i]*Math.pow(mae/100/1.96,2);
+      }
+      vSamp/= (wSum*wSum);
+      const half=Z90*Math.sqrt(Math.max(0,vLoc)+vSamp);
+      const li=padL+(xd/spanDays)*(w-padL-padR);
+      bandPts.push([li, sy(mu+half), sy(mu-half), sy(mu)]);
+    }
+    if (bandPts.length>1){
+      let bandPath='M '+bandPts.map(pt=>pt[0].toFixed(1)+' '+pt[1].toFixed(1)).join(' L ');
+      const bot=bandPts.slice().reverse();
+      bandPath+=' L '+bot.map(pt=>pt[0].toFixed(1)+' '+pt[2].toFixed(1)).join(' L ')+' Z';
+      svg+=`<path d="${bandPath}" fill="${color}" opacity="0.12" stroke="none"/>`;
+      let meanPath='';
+      for (let i=0;i<bandPts.length;i++){
+        const pt=bandPts[i];
+        meanPath+=(meanPath===''?`M ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`:` L ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`);
+      }
+      svg+=`<path d="${meanPath}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.9" stroke-linejoin="round"/>`;
+    }
+    for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
     let path="";
     let lastLi=null,lastTi=null;
     for (let i=0;i<res.xs.length;i++){
