@@ -2487,8 +2487,7 @@ const YEREL_MATRIX_DEFAULTS = {
   'CHP':   {'AKP':0.0,'YENI':0.70,'DEM':0.55,'Cumhur':0.0,'Milliyetçi Muh.':0.10,'Sol Muh.':1.0,'Muhafazakar Muh.':0.0},
   'SAADET':{'AKP':0.50,'YENI':0.10,'DEM':0.0,'Cumhur':0.35,'Milliyetçi Muh.':0.10,'Sol Muh.':0.0,'Muhafazakar Muh.':1.0},
   'YRP':   {'AKP':0.45,'YENI':0.10,'DEM':0.0,'Cumhur':0.45,'Milliyetçi Muh.':0.15,'Sol Muh.':0.0,'Muhafazakar Muh.':1.0},
-  'DEVA':  {'AKP':0.35,'YENI':0.30,'DEM':0.10,'Cumhur':0.25,'Milliyetçi Muh.':0.30,'Sol Muh.':0.15,'Muhafazakar Muh.':0.85},
-  'VATAN': {'AKP':0.10,'YENI':0.50,'DEM':0.30,'Cumhur':0.10,'Milliyetçi Muh.':0.20,'Sol Muh.':0.60,'Muhafazakar Muh.':0.10}
+  'DEVA':  {'AKP':0.35,'YENI':0.30,'DEM':0.10,'Cumhur':0.25,'Milliyetçi Muh.':0.30,'Sol Muh.':0.15,'Muhafazakar Muh.':0.85}
 };
 function yerelBlocs(){
   const out={};
@@ -2509,17 +2508,28 @@ function runLocal(){
   const un=userNorm();
   const w24=clamp(parseFloat(state.yerelW24)||90,50,100)/100;
   const flowRate=clamp(parseFloat(state.yerelFlow)||50,0,80)/100;
-  const natB=YEREL_2024.nat||{};
+  // baseline blend: %65 resmi 2024 ulusal + %25 ilçe toplamı (il bazlı) + %10 2023 genel
+  const W24N=0.65, WAGG=0.25, W23=0.10;
+  const nat24=YEREL_2024.nat24||{}, nat23=YEREL_2024.nat23||{}, natAgg=YEREL_2024.natAgg||{};
+  const natKeys=new Set([...Object.keys(nat24),...Object.keys(nat23),...Object.keys(natAgg),...Object.keys(un)]);
+  const normTo100=(obj)=>{ const t=Object.values(obj).reduce((a,b)=>a+b,0); if (t<=0) return obj; const out={}; for (const k of Object.keys(obj)) out[k]=obj[k]/t*100; return out; };
+  const blendedNat={};
+  for (const p of natKeys) blendedNat[p]=W24N*(nat24[p]||0)+WAGG*(natAgg[p]||0)+W23*(nat23[p]||0);
+  const natB=normTo100(blendedNat);
   const matrix=yerelMatrix();
   const blocs=yerelBlocs();
   const out={};
   for (const prov of Object.keys(YEREL_2024.provinces)){
-    const base=YEREL_2024.provinces[prov];
+    const agg=YEREL_2024.provinces[prov];
     const allP={};
-    for (const p of Object.keys(base)) allP[p]=1;
+    for (const p of Object.keys(agg)) allP[p]=1;
     for (const p of Object.keys(un)) allP[p]=1;
     const keys=Object.keys(allP);
-    // logit swing from user national input vs 2024 national
+    // blended 2024 base per province (65/25/10)
+    const baseRaw={};
+    for (const p of keys) baseRaw[p]=W24N*(nat24[p]||0)+WAGG*(agg[p]||0)+W23*(nat23[p]||0);
+    const base=normTo100(baseRaw);
+    // logit swing from user national input vs blended national
     const swinged={};
     for (const p of keys){
       const R=base[p]||0, Bc=natB[p]||0, Pc=un[p]||0;
@@ -2678,7 +2688,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Geri test (2024): 2024 ulusal oy dağılımı girdisinde kazanan illerin %90'ı doğru tahmin ediliyor (varsayılan ayarlarla).</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban karışımı: %65 resmi 2024 ulusal + %25 ilçe toplamı + %10 2023 genel. Geri test (2024): varsayılan ayarlarla %59, akış %25'te %72 doğruluk.</div>
   </div>`;
 }
 function yerelMatrixHtml(){
@@ -2707,7 +2717,7 @@ function renderYerel(){
   const pane=$('#pane_yerel');
   if (!pane) return;
   if (!YEREL_2024) { pane.innerHTML=`<div class="sb-card shadow"><div class="big-note">Yerel seçim verisi yüklenemedi.</div></div>`; return; }
-  runLocal();
+runLocal();
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
   html+=yerelSettingsHtml();
   html+=yerelMatrixHtml();
