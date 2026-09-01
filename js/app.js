@@ -69,7 +69,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:0, yerelFlow:10, yerelMatrix:null, yerelResults:null, yerelProv:"",
+  yerelW24:0, yerelFlow:10, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"",
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2506,6 +2506,18 @@ function yerelMatrix(){
   if (!state.yerelMatrix) state.yerelMatrix=JSON.parse(JSON.stringify(YEREL_MATRIX_DEFAULTS));
   return state.yerelMatrix;
 }
+// yerel-tab'a özel ittifak listesi (varsayılan: genel ittifak editöründen)
+function yerelAlliancesObj(){
+  if (!state.yerelAlliances) state.yerelAlliances=JSON.parse(JSON.stringify(state.allianceList||[]));
+  const allP=allParties();
+  const out={};
+  for (const a of state.yerelAlliances){
+    if (a && a.name && String(a.name).trim() && a.parties && a.parties.length){
+      out[String(a.name).trim()]=a.parties.filter(p=>allP.includes(p));
+    }
+  }
+  return out;
+}
 function runLocal(){
   if (!YEREL_2024) return;
   const un=userNorm();
@@ -2552,18 +2564,17 @@ function runLocal(){
     for (const p of keys) final0[p]=w24*(base[p]||0)+(1-w24)*(swinged[p]||0);
     const tF=Object.values(final0).reduce((a,b)=>a+b,0);
     for (const p of keys) final0[p]=tF>0?final0[p]/tF*100:0;
-    // majors: top 3 + any party >5pp (max 4)
+    // majors: top 3 + any party >10pp (max 4 — 4'lü yarışlar nadirleşir)
     const ranked=Object.entries(final0).sort((a,b)=>b[1]-a[1]);
     const majors=[];
     for (let i=0;i<Math.min(3,ranked.length);i++) majors.push(ranked[i][0]);
-    for (const [p,v] of ranked.slice(3)){ if (v>5 && majors.length<4) majors.push(p); }
+    for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4) majors.push(p); }
     // alliance dropout: minor alliance members fully support their qualifying partners
-    const allyMap={}, allyNames={};
-    const allysObj=alliancesObj();
+    const allyMap={};
+    const allysObj=yerelAlliancesObj();
     for (const aly of Object.keys(allysObj)){
       for (const p of allysObj[aly]){ allyMap[p]=aly; }
     }
-    const allyKeys=Object.keys(allyMap);
     const flows={};
     for (const p of keys){
       if (majors.indexOf(p)>=0) continue;
@@ -2608,6 +2619,16 @@ function runLocal(){
     if (anyN){
       const tN=Object.values(final).reduce((a,b)=>a+b,0);
       for (const p of Object.keys(final)) final[p]=tN>0?final[p]/tN*100:0;
+    }
+    // popularity boost: 2024 kazananının yerel popülarite desteği (puan)
+    const pb=clamp(parseFloat(state.yerelPopBoost)||0,0,10);
+    if (pb>0){
+      const inc=YEREL_2024.winners[prov]||'';
+      if (inc && (final[inc]||0)>0){
+        final[inc]+=pb;
+        const tB=Object.values(final).reduce((a,b)=>a+b,0);
+        for (const p of Object.keys(final)) final[p]=tB>0?final[p]/tB*100:0;
+      }
     }
     const sortedF=Object.entries(final).sort((a,b)=>b[1]-a[1]);
     out[prov]={prov, winner:sortedF[0][0], winnerPct:sortedF[0][1],
@@ -2719,10 +2740,38 @@ function yerelSettingsHtml(){
         <div style="display:flex;justify-content:space-between;font-weight:900;font-size:11px;color:var(--c-text-muted);margin-bottom:4px;"><span>MİNOR AKIŞ ORANI</span><span style="color:#1A1A1A;">%${state.yerelFlow}</span></div>
         <input id="yerel-flow" type="range" min="0" max="80" step="1" value="${state.yerelFlow}" style="width:100%;accent-color:#111827;">
       </div>
+      <div style="min-width:220px;flex:1;">
+        <div style="display:flex;justify-content:space-between;font-weight:900;font-size:11px;color:var(--c-text-muted);margin-bottom:4px;"><span>POPÜLERLİK DESTEĞİ (2024 KAZANANI)</span><span style="color:#1A1A1A;">+${state.yerelPopBoost} puan</span></div>
+        <input id="yerel-pop" type="range" min="0" max="10" step="0.5" value="${state.yerelPopBoost}" style="width:100%;accent-color:#111827;">
+      </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
     <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 yerel il sonuçları (ilçe ortalaması + 26 il düzeltmesi). Geri test (2024): %91. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
+}
+function yerelAlliancesHtml(){
+  const list=state.yerelAlliances||JSON.parse(JSON.stringify(state.allianceList||[]));
+  state.yerelAlliances=list;
+  const allP=allParties();
+  let html=`<div class="sb-card shadow" style="margin-bottom:12px">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">İTTİFAKLAR (YEREL)</div></div>
+    <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Ana aday olamayan ittifak üyesi, ittifak ortağına tam destek verir (aday çekilme mekanizması).</div>
+    <div id="yerel-ally-list">
+      ${list.map((a,i)=>`
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;padding:8px;border:2px solid var(--c-edge);background:#F7F7F5;">
+          <input class="yerel-ally-name" data-i="${i}" value="${esc(a.name||'')}" placeholder="İttifak adı" style="width:170px;height:30px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;padding:0 8px;background:#fff;flex-shrink:0;">
+          <div style="flex:1;display:flex;flex-wrap:wrap;gap:4px;">
+            ${allP.map(p=>`<label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:2px 6px;border:2px solid var(--c-edge);background:${(a.parties||[]).includes(p)?(PARTY_COLORS[p]||'#888'):'#fff'};color:${(a.parties||[]).includes(p)?'#fff':'#1A1A1A'};cursor:pointer;white-space:nowrap;"><input type="checkbox" class="yerel-ally-p" data-i="${i}" data-party="${esc(p)}" ${(a.parties||[]).includes(p)?'checked':''} style="display:none;">${esc(p)}</label>`).join('')}
+          </div>
+          <button class="yerel-ally-rm" data-i="${i}" style="height:30px;width:30px;border:2px solid var(--c-edge);background:#fff;font-weight:900;cursor:pointer;flex-shrink:0;">✕</button>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn-side" id="yerel-ally-add" style="flex:1;">İttifak Ekle</button>
+      <button class="btn-side" id="yerel-ally-reset" style="flex:1;">Varsayılana Dön</button>
+    </div>
+  </div>`;
+  return html;
 }
 function yerelMatrixHtml(){
   const matrix=yerelMatrix();
@@ -2753,6 +2802,7 @@ function renderYerel(){
   runLocal();
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
   html+=yerelSettingsHtml();
+  html+=yerelAlliancesHtml();
   html+=yerelMatrixHtml();
   html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;margin-bottom:12px;box-shadow:5px 5px 0 rgba(17,24,39,1);">${yerelSummaryHtml()}</div>`;
   html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
@@ -2766,6 +2816,28 @@ function renderYerel(){
   const w24=$('#yerel-w24'); if (w24) w24.onchange=()=>{ state.yerelW24=parseFloat(w24.value); renderYerel(); };
   const flow=$('#yerel-flow'); if (flow) flow.onchange=()=>{ state.yerelFlow=parseFloat(flow.value); renderYerel(); };
   const run=$('#yerel-run'); if (run) run.onclick=()=>{ runLocal(); renderYerel(); };
+  const pop=$('#yerel-pop'); if (pop) pop.onchange=()=>{ state.yerelPopBoost=parseFloat(pop.value); renderYerel(); };
+  $$('#pane_yerel .yerel-ally-name').forEach(inp=>{
+    inp.onchange=()=>{ state.yerelAlliances[parseInt(inp.getAttribute('data-i'),10)].name=inp.value; };
+  });
+  $$('#pane_yerel .yerel-ally-p').forEach(cb=>{
+    cb.onchange=()=>{
+      const i=parseInt(cb.getAttribute('data-i'),10), p=cb.getAttribute('data-party');
+      const a=state.yerelAlliances[i];
+      if (!a.parties) a.parties=[];
+      const idx=a.parties.indexOf(p);
+      if (cb.checked && idx<0) a.parties.push(p);
+      if (!cb.checked && idx>=0) a.parties.splice(idx,1);
+      renderYerel();
+    };
+  });
+  $$('#pane_yerel .yerel-ally-rm').forEach(btn=>{
+    btn.onclick=()=>{ state.yerelAlliances.splice(parseInt(btn.getAttribute('data-i'),10),1); renderYerel(); };
+  });
+  const allyAdd=$('#yerel-ally-add');
+  if (allyAdd) allyAdd.onclick=()=>{ state.yerelAlliances.push({id:'yaly_'+(state.yerelAlliances.length+1), name:'Yeni Blok '+(state.yerelAlliances.length+1), parties:[], sel:''}); renderYerel(); };
+  const allyReset=$('#yerel-ally-reset');
+  if (allyReset) allyReset.onclick=()=>{ state.yerelAlliances=JSON.parse(JSON.stringify(state.allianceList||[])); renderYerel(); };
   $$('#pane_yerel .yerel-mx').forEach(inp=>{
     inp.onchange=()=>{
       const m=yerelMatrix();
