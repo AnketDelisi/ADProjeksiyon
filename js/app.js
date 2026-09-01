@@ -2597,7 +2597,7 @@ function yerelTierChip(tier){
 function yerelTooltipHtml(r){
   const tier=provTier(r.margin);
   let html=`<div class="tip-header">${esc(get_display_label(r.prov))}${r.big?'<span class="tip-total">BÜYÜKŞEHİR</span>':''}</div>`;
-  const entries=Object.entries(r.shares).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const entries=Object.entries(r.shares).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
   for (const [p,v] of entries){
     const maj=r.majors.indexOf(p)>=0;
     html+=`<div class="tip-row"><div class="tip-party" style="${maj?'font-weight:900;':'font-weight:700;'}">${esc(p)}${maj?' ★':''}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${v.toFixed(1)}%; background-color: ${PARTY_COLORS[p]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)}</div></div>`;
@@ -2611,7 +2611,7 @@ function yerelMapHtml(){
   for (const prov of Object.keys(res.provs)){
     const r=res.provs[prov];
     provWinners[prov]=r.winner;
-    customColors[prov]=get_heatmap_color(PARTY_COLORS[r.winner]||'#888888', clamp(Math.max(0.3,Math.min(1.0,r.margin/65)),0,1));
+    customColors[prov]=PARTY_COLORS[r.winner]||'#888888';
     tooltipDict[prov]=yerelTooltipHtml(r);
   }
   return renderColoredSvg(SVG_TURKIYE2, {provWinners, distWinners:{}, colorsDict:PARTY_COLORS, tooltipDict, seatsData:{}, showBadges:false, customColors, uid:'yerel', svgFile:'turkiye2.svg'});
