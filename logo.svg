@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="34" viewBox="0 0 300 34">
+  <rect x="0" y="0" width="34" height="34" fill="#E00000"/>
+  <rect x="3" y="3" width="28" height="28" fill="#E00000" stroke="#111827" stroke-width="2"/>
+  <path d="M10 10 L16 10 L16 14 L14 14 L14 20 L16 20 L16 24 L10 24 L10 20 L12 20 L12 14 L10 14 Z" fill="#FFFFFF"/>
+  <path d="M20 10 L24 10 L24 14 L22 14 L22 20 L24 20 L24 24 L20 24 L20 20 L22 20 L22 14 L20 14 Z" fill="#FFFFFF"/>
+  <text x="46" y="24" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="900" fill="#1A1A1A" letter-spacing="1px">AD PROJEKSİYON</text>
+</svg>

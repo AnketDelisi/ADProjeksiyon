@@ -955,7 +955,7 @@ function renderSidebar(){
   const tot=Object.values(state.userInputs).reduce((a,b)=>a+(b||0),0);
   const rem=100-tot;
   const gecerli=()=>{ let s=state.w18+state.w23+state.w24; if (!s) return ''; const f=w=>`%${Math.round(w/s*100)}`; return `${f(state.w18)} · ${f(state.w23)} · ${f(state.w24)}`; };
-  let html=`<div class="sidebar-logo"><img src="data/turkiye.svg" alt="" style="display:none"/><div style="font-weight:900;font-size:20px;letter-spacing:1px;">AD PROJEKSİYON</div><div style="font-size:11px;color:var(--c-text-muted);font-weight:900">anket &amp; seçim modeli</div></div>`;
+  let html=`<div class="sidebar-logo"><img src="logo.svg" alt="AD Projeksiyon" style="width:100%;max-width:220px;height:auto;" onerror="this.style.display='none';document.getElementById('sidebar-logo-fallback').style.display='block';"/><div id="sidebar-logo-fallback" style="display:none;font-weight:900;font-size:20px;letter-spacing:1px;">AD PROJEKSİYON</div></div>`;
   html+=`<div class="sb-card shadow"><button class="btn-calc" id="btn-run">SİMÜLASYONU ÇALIŞTIR</button>
     <div style="margin-top:16px"><div class="sim-select-wrap">
       <select id="scenario-select">${Object.keys(PREDEFINED_SCENARIOS).map(s=>`<option ${s===state.scenario?'selected':''}>${esc(s)}</option>`).join('')}</select>
@@ -2857,7 +2857,6 @@ function firmChipHtml(f){
   return `<div class="member-chip"><span class="t">${esc(f)}</span><button type="button" title="Kaldır">✕</button></div>`;
 }
 // province race ratings (5-tier)
-const TIER_COLORS = {'KESİN':'#1A8917','GÜÇLÜ':'#4CAF50','EĞİLİMLİ':'#F5A623','HAFİF EĞİLİMLİ':'#F97316','BAŞA BAŞ':'#E00000'};
 function provTier(margin){
   if (margin>15) return 'KESİN';
   if (margin>10) return 'GÜÇLÜ';
@@ -3049,7 +3048,7 @@ function runMc(){
       for (const normDist of Object.keys(mcTooltipDict)){
         const rt=provTierMap[normDist];
         if (!rt) continue;
-        const tc=TIER_COLORS[rt.tier]||'#71716E';
+        const tc=PARTY_COLORS[rt.party]||'#888';
         mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:4px 0;border:2px solid #111827;background:${tc};color:#FFFFFF;font-weight:900;font-size:11px;letter-spacing:1px;text-align:center;">${rt.tier}</div>`;
       }
       state.mc.mapHtml=renderColoredSvg(SVG_TURKIYE,{provWinners:{},distWinners:mcDistWinners,colorsDict:PARTY_COLORS,tooltipDict:mcTooltipDict,seatsData:{},showBadges:false,customColors:mcolDict,uid:'mc',svgFile:'turkiye.svg',hiddenInputId:'hidden_prov_input_mc',detailSectionId:'mc_prov_detail_section'});
@@ -3098,7 +3097,7 @@ function renderOlasilik(){
     <div style="font-size:12px;color:var(--c-text-muted);width:100%;line-height:1.6;">Model, bugün seçim olsa ortaya çıkacak tabloyu gösterir; geleceğe projeksiyon yapmaz. Kararsızlar hiçbir partiye dağıtılmaz; farklar anketlerde yayınlandığı haliyle korunur.${latestT?` <span style="color:#1A1A1A;font-weight:900;">Son güncelleme: ${esc(latestT)}.</span>`:''}</div>
   </div>`;
   // 1) firm selection + hata payı
-  html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;margin-bottom:12px;padding:14px 16px;">
+  html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;margin-bottom:12px;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
     <div class="sb-kicker"><div class="bar"></div><div class="t">MODELE DAHİL EDİLECEK FİRMALAR</div></div>
     <div style="display:flex;gap:12px;align-items:flex-end;width:100%;flex-wrap:wrap;">
       <div style="flex:1;min-width:260px;background:#F7F7F5;border:1px solid var(--c-border);padding:12px;width:100%;">
@@ -3121,24 +3120,24 @@ function renderOlasilik(){
     html+=`<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:16px;">`;
     html+=state.mc.titleHtml;
     html+=state.mc.faceoffHtml;
-    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
+    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
       <div class="sb-kicker"><div class="bar"></div><div class="t">SANDALYE DAĞILIMI — 500 SİMÜLASYON</div></div>
       <div style="font-size:12px;color:var(--c-text-muted);text-align:left;width:100%;margin-bottom:8px;">Her nokta bir simülasyonun meclis sandalyesidir. Noktaya gelince sonucu görün.</div>
       <div>${state.mc.beeSvg}</div>
     </div>`;
-    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
+    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
       <div class="sb-kicker"><div class="bar"></div><div class="t">SENARYO SONUÇ LİSTESİ</div></div>
       <div>${state.mc.confTableHtml}</div>
     </div>`;
-    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
+    html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
       <div class="sb-kicker"><div class="bar"></div><div class="t">TÜRKİYE OLASILIK HARİTASI</div></div>
       <div class="map-frame">${state.mc.mapHtml||emptyMap()}</div>
     </div>`;
     if (state.mc.provRatings && state.mc.provRatings.length){
       const tf=state.mc.tierFilter||'TÜMÜ';
       const filtered=tf==='TÜMÜ'?state.mc.provRatings:state.mc.provRatings.filter(r=>r.tier===tf);
-      const tierChip=(t)=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${TIER_COLORS[t]||'#71716E'};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${t}</span>`;
-      html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
+      const tierChip=(t,party)=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[party]||'#888'};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${t}</span>`;
+      html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;flex-wrap:wrap;gap:8px;">
           <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">SEÇİM BÖLGESİ YARIŞ KARNESİ</div></div>
           <select id="mc-tier-filter" style="height:34px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 8px;background:#fff;color:#1A1A1A;">
@@ -3154,7 +3153,7 @@ function renderOlasilik(){
               <td style="font-weight:900;color:${pc};white-space:nowrap;">${esc(r.party)}</td>
               <td style="text-align:right;font-variant-numeric:tabular-nums;">%${r.prob}</td>
               <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:900;color:#1A1A1A;">${r.margin.toFixed(1)}</td>
-              <td style="text-align:right;">${tierChip(r.tier)}</td>
+              <td style="text-align:right;">${tierChip(r.tier, r.party)}</td>
             </tr>`;
           }).join('')}
         </tbody></table></div>
