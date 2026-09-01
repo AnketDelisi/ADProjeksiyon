@@ -102,6 +102,21 @@ function to_tr_title(text){
   }).join(' ');
 }
 function get_display_name(norm_id){ return PROVINCE_NAMES[norm_id] || to_tr_title(norm_id); }
+// Display label for a province or district id that may carry a region digit suffix,
+// e.g. "istanbul2" -> "İstanbul 2", "adana1" -> "Adana". Prefers the authoritative
+// accented district name from data/districts.json when loaded.
+function get_display_label(id){
+  if (typeof id !== 'string') return '';
+  const norm = normalize_id(id);
+  if (typeof window !== 'undefined' && window.DISTRICTS && window.DISTRICTS.length){
+    const d = window.DISTRICTS.find(x => x.norm === norm);
+    if (d && d.name) return d.name;
+  }
+  const base = String(id).replace(/\d+$/,'');
+  const m = String(id).match(/(\d+)$/);
+  const name = PROVINCE_NAMES[normalize_id(base)] || to_tr_title(base);
+  return m ? `${name} ${m[1]}` : name;
+}
 
 function sig(x){ return 1/(1+Math.exp(-x)); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
@@ -216,13 +231,21 @@ function sampleGamma(alpha, rng){
     if (u <= 0) return 0;
     return sampleGamma(alpha+1, rng)*Math.pow(u, 1/alpha);
   }
+  // Marsaglia-Tsang (2000) with a proper standard normal via Box-Muller
   const d = alpha - 1/3, c = 1/Math.sqrt(9*d);
   for(;;){
-    let x=0,y=0,v=0;
-    do { x = rng(); y = 1+rng(); v = y*Math.tan(Math.PI*x); } while (v<=0);
-    const z = 1 + c*v;
-    let s = z*z*z;
-    if (s > 0 && Math.exp(-0.5*v*v)*rng() < (1 - 0.0331*(z-1)**4)/(s || 1)) return d*s;
+    let x, v;
+    do {
+      let u1 = rng();
+      if (u1 <= 0) u1 = 1e-12;
+      const u2 = rng();
+      x = Math.sqrt(-2*Math.log(u1)) * Math.cos(2*Math.PI*u2);
+      v = Math.pow(1 + c*x, 3);
+    } while (v <= 0);
+    const u = rng();
+    const x2 = x*x;
+    if (u >= 1 - 0.0331*x2*x2 && Math.log(u) >= 0.5*x2 + d*(1 - v + Math.log(v))) continue;
+    return d*v;
   }
 }
 

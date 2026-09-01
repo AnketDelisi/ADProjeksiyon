@@ -239,15 +239,20 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
     }
   }
 
+  // Seat allocation uses a copy with sub-threshold (unqualified) parties zeroed,
+  // matching Python's pivot_eligible. The OUTPUT new_vote_pct keeps full votes
+  // (Python uses pivot_votes), so sub-threshold parties remain visible.
+  const pivotAlloc = {};
+  for (const d of districtNorms) pivotAlloc[d] = Object.assign({}, pivot[d]);
   for (const d of districtNorms){
     for (const p of partiesAll){
-      if (!qualified.has(p)) pivot[d][p] = 0;
+      if (!qualified.has(p)) pivotAlloc[d][p] = 0;
     }
   }
 
   const seats_won = {};
   for (const d of districtNorms){
-    const v = partiesAll.map(p=>pivot[d][p]);
+    const v = partiesAll.map(p=>pivotAlloc[d][p]);
     const s = seats[d] || 0;
     let alloc;
     if (s<=0 || v.reduce((a,b)=>a+b,0)<=0) alloc = new Array(partiesAll.length).fill(0);

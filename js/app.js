@@ -12,8 +12,19 @@ let DISTRICTS = [];             // districts.json rows {name,province,seats,norm
 let SVG_TURKIYE = "";           // turkiye.svg raw
 let POLLS_RAW = [];             // polls.json rows {Firma,Tarih,MAE,<party cols>}
 let FIRM_NAMES_JS = [];         // unique sorted Firma list from polls
+let ILCE_NAMES = null;          // ilce_names.json {provinces:{p|i:name}, global:{i:name}}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
 const ILCE_SVG_CACHE = {};      // prov -> raw svg
+
+// Accented ilçe display name for a normalized ilçe id within a province.
+function getIlceName(provNorm, ilceNorm){
+  if (ILCE_NAMES && ILCE_NAMES.provinces){
+    const pk = (provNorm||'') + '|' + (ilceNorm||'');
+    if (ILCE_NAMES.provinces[pk]) return ILCE_NAMES.provinces[pk];
+  }
+  if (ILCE_NAMES && ILCE_NAMES.global && ILCE_NAMES.global[ilceNorm]) return ILCE_NAMES.global[ilceNorm];
+  return to_tr_title(ilceNorm);
+}
 
 window.BASE_YEARS = [] ; window.DISTRICTS = [];
 
@@ -183,9 +194,9 @@ function computeSwing(baseObj, un){
       const lastW = quotients[seatCount-1], firstL = quotients[seatCount];
       const margin = lastW.quotient-firstL.quotient;
       if (lastW.party===state.targetPartySwing){
-        risks.push({district:to_tr_title(d), rakip:firstL.party, desc:`${firstL.party}'den %${margin.toFixed(2)} farkla kurtarıldı.`, margin});
+        risks.push({district:get_display_label(d), rakip:firstL.party, desc:`${firstL.party}'den %${margin.toFixed(2)} farkla kurtarıldı.`, margin});
       } else if (firstL.party===state.targetPartySwing){
-        opps.push({district:to_tr_title(d), rakip:lastW.party, desc:`${lastW.party}'ye %${margin.toFixed(2)} farkla kaybedildi.`, margin});
+        opps.push({district:get_display_label(d), rakip:lastW.party, desc:`${lastW.party}'ye %${margin.toFixed(2)} farkla kaybedildi.`, margin});
       }
     }
   }
@@ -342,10 +353,10 @@ function tooltipGroupRows(aggRows){
   }
   return aggRows.filter(r=>r.new_vote_pct>0).sort((a,b)=>b.new_vote_pct-a.new_vote_pct).map(r=>({label:r.party, vote:parseFloat(r.new_vote_pct), seats:parseInt(r.seats_won,10)||0, col:PARTY_COLORS[r.party]||'#888'}));
 }
-function tooltipHtmlFromRows(title, rows){
+function tooltipHtmlFromRows(title, rows, hideSeats){
   let html = `<div class="tip-header">${title}</div>`;
   for (const r of rows.slice(0,5)){
-    html += `<div class="tip-row"><div class="tip-party">${esc(r.label)}</div><div class="tip-seat">${r.seats}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${Math.min(r.vote,100).toFixed(1)}%; background-color: ${r.col};"></div></div><div class="tip-pct">%${r.vote.toFixed(1)}</div></div>`;
+    html += `<div class="tip-row"><div class="tip-party">${esc(r.label)}</div>${hideSeats?'':`<div class="tip-seat">${r.seats}</div>`}<div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${Math.min(r.vote,100).toFixed(1)}%; background-color: ${r.col};"></div></div><div class="tip-pct">%${r.vote.toFixed(1)}</div></div>`;
   }
   return html;
 }
@@ -411,7 +422,7 @@ function buildMapHtml(res, uid, hiddenInput, detailSection){
       const agg=aggRows(group);
       const top5=agg.filter(r=>r.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,5);
       const seatSum=group.reduce((a,r)=>a+r.seats_won,0);
-      let html=`<div class="tip-header">${to_tr_upper(prov)}<span class="tip-total">${seatSum} MİLLETVEKİLİ</span></div>`;
+      let html=`<div class="tip-header">${to_tr_upper(get_display_label(prov))}<span class="tip-total">${seatSum} MİLLETVEKİLİ</span></div>`;
       for (const r of top5){ html+=tipRowHtml(r.party, r.seats, r.pct); }
       tooltipDict[nrm]=html;
       const winner=top5.length?top5[0].party:null;
@@ -439,7 +450,7 @@ function buildMapHtml(res, uid, hiddenInput, detailSection){
       const group=byDist[dist];
       const seatSum=group.reduce((a,r)=>a+r.seats_won,0);
       const seatSpan=seatSum>0?`<span class="tip-total">${seatSum} MİLLETVEKİLİ</span>`:"";
-      let html=`<div class="tip-header">${dist}${seatSpan}</div>`;
+      let html=`<div class="tip-header">${get_display_label(dist)}${seatSpan}</div>`;
       const top5=[...group].sort((a,b)=>b.new_vote_pct-a.new_vote_pct).slice(0,5);
       for (const r of top5){ if (r.new_vote_pct>0) html+=tipRowHtml(r.p, r.seats_won, r.new_vote_pct); }
       tooltipDict[normalize_id(dist)]=html;
@@ -456,12 +467,12 @@ function tipRowHtml(p, seats, pct){
 }
 function districtTooltip(dist, group, party, seatSum){
   const seatSpan=seatSum>0?`<span class="tip-total">${seatSum} MİLLETVEKİLİ</span>`:"";
-  let html=`<div class="tip-header">${dist}${seatSpan}</div>`;
+  let html=`<div class="tip-header">${get_display_label(dist)}${seatSpan}</div>`;
   for (const r of group){ if (r.p===party && r.new_vote_pct>0) html+=tipRowHtml(r.p, r.seats_won, r.new_vote_pct); }
   return html;
 }
 function provinceTooltip(prov, group, party){
-  let html=`<div class="tip-header">${prov}</div>`;
+  let html=`<div class="tip-header">${get_display_label(prov)}</div>`;
   for (const r of group){ if (r.p===party && r.new_vote_pct>0) html+=tipRowHtml(r.p, r.seats_won, r.new_vote_pct); }
   return html;
 }
@@ -493,6 +504,10 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
     if (parties.length>=1){ entities[aly]=[...parties]; for (const p of parties) entityOf[p]=aly; }
   }
   for (const p of allParties()){ if (!entityOf[p]){ entities[p]=[p]; entityOf[p]=p; } }
+  // Global (nationwide) winning entity: one color scheme for the whole map.
+  const natVotesAll={};
+  for (const r of df) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
+  const globalWinEnt = mp ? null : entityWin(entities, natVotesAll);
   const refMin = mp?0:65;
   const byProv={}, byDist={};
   for (const r of df){ (byProv[r.province]=byProv[r.province]||[]).push(r); (byDist[r.d]=byDist[r.d]||[]).push(r); }
@@ -506,7 +521,7 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
     if (mp){ const [fp,c]=mpRegionColor(agg); colorKey=fp; col=c; customColors[nrm]=col; }
     else {
       const regVotes={}; for (const o of agg) regVotes[o.party]=o.pct;
-      const winEnt=entityWin(entities, regVotes);
+      const winEnt=globalWinEnt;
       const winCount=winEnt?entitySum(winEnt, entities, regVotes):0;
       colorKey=winEnt?colorKeyForEntity(winEnt, regVotes, entities, alliances):'#888';
       const intensity=winCount?clamp(Math.max(0.25,Math.min(1.0,winCount/refMin)),0,1):0.25;
@@ -529,7 +544,7 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
       distWinners[nd]=colorKey; customColors[nd]=col;
     } else {
       const regVotes={}; for (const o of agg) regVotes[o.party]=o.pct;
-      const winEnt=entityWin(entities, regVotes);
+      const winEnt=globalWinEnt;
       const winCount=winEnt?entitySum(winEnt, entities, regVotes):0;
       colorKey=winEnt?colorKeyForEntity(winEnt, regVotes, entities, alliances):'#888';
       const intensity=winCount?clamp(Math.max(0.25,Math.min(1.0,winCount/refMin)),0,1):0.25;
@@ -863,6 +878,10 @@ function renderMeclis(){
       if ($('#map-wrapper-genel')) bindMapWrapper('genel', norm=>selectProvince(norm));
     }, 30);
   }
+  const infBtn=$('#btn-infographic');
+  if (infBtn) infBtn.onclick=()=>downloadNationalInfographic();
+  const mecIlBtn=$('#btn-mec-il-info');
+  if (mecIlBtn) mecIlBtn.onclick=()=>downloadMecIlInfographic();
 }
 
 function summaryRowsHtml(){
@@ -1199,7 +1218,7 @@ function setDetailProvince(prov){
   if (!full.length) return;
   const provDf=full.filter(r=>String(r.province).replace(/\d+$/,'').startsWith(prov) || normalize_id(r.province).startsWith(prov));
   if (!provDf.length) return;
-  const dName=to_tr_title(prov);
+  const dName=get_display_label(prov);
   // aggregate
   const agg=aggRows(provDf);
   const topParties=[...agg].filter(o=>o.pct>0).sort((a,b)=>(b.seats-a.seats)||(b.pct-a.pct));
@@ -1224,7 +1243,8 @@ function setDetailProvince(prov){
       labels.push("İl Geneli (Toplam)");
       barsMap["İl Geneli (Toplam)"]=buildDistrictBarRows(agg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:o.seats})), bVotes, bSeats, true, barGroups);
       for (const dist of provDistricts){
-        const label=`${String(dist).split('-').slice(-1)[0]}. Bölge`;
+        const dm=String(dist).match(/(\d+)$/);
+        const label=`${dm?dm[1]:dist}. Bölge`;
         const dRes=provDf.filter(r=>r.d===dist).map(r=>({party:r.p, new_vote_pct:r.new_vote_pct, seats_won:r.seats_won}));
         const d23=info.byDist[dist];
         const dBV=d23?d23.votes:{}, dBS=d23?d23.seats:{};
@@ -1370,7 +1390,9 @@ function renderCityMap(prov, cityData, svgText){
         if (live.length>=1){ ents[aly]=live; for (const p of live) entOf[p]=aly; }
       }
       for (const p of allP){ if (!entOf[p]){ ents[p]=[p]; entOf[p]=p; } }
-      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,dpcts)-entitySum(a,ents,dpcts))[0]:null;
+      const natVotesAll={};
+      for (const r of cityRes) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
+      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,natVotesAll)-entitySum(a,ents,natVotesAll))[0]:null;
       const colorKey=winEnt?colorKeyForEntity(winEnt,dpcts,ents,ilsAlliances):'#888';
       wParty=colorKey; dCol=PARTY_COLORS[colorKey]||'#888';
     } else {
@@ -1381,7 +1403,7 @@ function renderCityMap(prov, cityData, svgText){
     const seatSum=grp.reduce((a,r)=>a+r.seats_won,0);
     const seatSpan=seatSum>0?`<span class="tip-total">${seatSum} MİLLETVEKİLİ</span>`:"";
     const dagg=aggRows(grp);
-    distTips[nDist]=tooltipHtmlFromRows(`${to_tr_title(String(dist))}${seatSpan}`, tooltipGroupRows(dagg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:o.seats}))));
+    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov, nDist)}${seatSpan}`, tooltipGroupRows(dagg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:o.seats}))), true);
     // ilce bars (2023 base from baked per-year data)
     const ilceBase=cityData[nDist]; 
     const b23=ilceBase&&ilceBase.parties?Object.fromEntries(Object.entries(ilceBase.parties).map(([p,v])=>[p,v.v23||0])):{};
@@ -1390,6 +1412,7 @@ function renderCityMap(prov, cityData, svgText){
   state.detailIlceBarsMap=ilceBars;
   const barsGroup=state.mapMode==="İttifak Renklendirmesi";
   const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners, colorsDict:PARTY_COLORS, tooltipDict:distTips, seatsData:{}, showBadges:false, customColors:distColors, uid:'city', svgFile:prov+'.svg', hiddenInputId:'hidden_city_input', detailSectionId:'prov_detail_section'});
+  state.detailCityMapHtml=mapHtml;
   const box=document.getElementById('city-map-box');
   if (box){
     box.innerHTML=mapHtml;
@@ -1412,7 +1435,7 @@ function clearDetailProv(){
 
 function detailSectionHtml(){
   if (!state.detailProv) return `<div class="sb-card shadow section-card" style="padding:14px"><div style="font-weight:900;font-size:12px;color:#64748B;">Dinamik il detayı: Haritada bir ile tıklayın.</div></div>`;
-  const pName=to_tr_title(state.detailProv);
+  const pName=get_display_label(state.detailProv);
   const bars=getActiveBars();
   const labels=state.detailTabLabels||[];
   let inner=``;
@@ -1422,7 +1445,7 @@ function detailSectionHtml(){
     <div class="city-map-box" id="city-map-box"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">${state.detailProv? 'İlçe haritası yükleniyor...':''}</div></div>
     ${state.detailIlce?`
       <div class="detail-translate">
-        <div class="di-name">${to_tr_title(state.detailIlce)}</div>
+        <div class="di-name">${getIlceName(state.detailProv, state.detailIlce)}</div>
         <button id="btn-back-prov" onclick="__clearIlce()">← İl Geneli</button>
       </div>
       ${ilceBarsHtml()}
@@ -1432,7 +1455,7 @@ function detailSectionHtml(){
       `}
     </div>
     <div style="display:flex;justify-content:center;margin-top:14px;width:100%">
-      <button class="btn-download" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
+      <button class="btn-download" id="btn-mec-il-info" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
     </div>
   </div>`;
   // trigger city map render
@@ -1656,11 +1679,12 @@ function cbCandidateCardHtml(c){
 }
 function cbR2CardHtml(c){
   const votes=cbCardVotes(c);
+  const idx=cbState().cands2.indexOf(c);
   return `<div class="cand-card cb-r2-card">
     <div class="head">
       <div class="cb-mini-label" style="margin-right:8px">2. TUR ADAYI</div>
       ${cbPartyBtnHtml(c)}
-      <div class="cb-name-in" style="margin-left:8px"><input class="cb-name-input" value="${esc(c.name)}" readonly /></div>
+      <div class="cb-name-in" style="margin-left:8px"><input class="cb-name-input cb-r2-name-input" data-r2-idx="${idx}" value="${esc(c.name)}" /></div>
     </div>
     <div class="cb-grid">${cbBlockGridHtml(votes, null, true)}</div>
   </div>`;
@@ -1749,7 +1773,7 @@ function cbMapData(out, candColors){
     const nd=normalize_id(d);
     distWinners[nd]=win[0];
     heatColors[nd]=get_heatmap_color(candColors[win[0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,win[1]/65)),0,1));
-    tooltips[nd]=cbTipHtml(d, entries, candColors, true);
+    tooltips[nd]=cbTipHtml(get_display_label(d), entries, candColors, true);
   }
   const provMeans={}, provCnt={};
   for (const d of Object.keys(out)){
@@ -1768,7 +1792,7 @@ function cbMapData(out, candColors){
     const nprov=normalize_id(prov);
     provWinners[nprov]=win[0];
     heatColors[nprov]=get_heatmap_color(candColors[win[0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,win[1]/65)),0,1));
-    tooltips[nprov]=cbTipHtml(prov, entries, candColors, true);
+    tooltips[nprov]=cbTipHtml(get_display_label(prov), entries, candColors, true);
   }
   return {provWinners, distWinners, heatColors, tooltips};
 }
@@ -1857,7 +1881,7 @@ function cbDetailSectionHtml(rn){
       <div class="city-map-box" id="cb-city-map-${rn}"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
       ${det.ilceSelected?`
         <div class="detail-translate">
-          <div class="di-name">${to_tr_title(det.ilceSelected)}</div>
+          <div class="di-name">${getIlceName(String(det.prov).replace(/\d+$/,''), det.ilceSelected)}</div>
           <button data-act="cb-clear-ilce" data-rn="${rn}">← İl Geneli</button>
         </div>
         <div class="detail-bars">${ilceBars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
@@ -1867,7 +1891,7 @@ function cbDetailSectionHtml(rn){
         `}
     </div>
     <div style="display:flex;justify-content:center;margin-top:14px;width:100%">
-      <button class="btn-download" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
+      <button class="btn-download" id="btn-cb-il-info" data-rn="${rn}" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
     </div>
   </div>`;
   return `<div id="cb_d${rn}_detail_section">${inner}</div>`;
@@ -1879,7 +1903,7 @@ function setCbDetailProvince(rn, prov){
   const cands=rn===1?cb.cands1:cb.cands2;
   const candColors={}, candPP={};
   for (const c of cands){ const nm=String(c.name||'').trim(); if (nm){ candColors[nm]=PARTY_COLORS[c.party]||'#888888'; candPP[nm]=c.party; } }
-  det.prov=prov; det.name=to_tr_title(prov);
+  det.prov=prov; det.name=get_display_label(prov);
   det.summary=[]; det.mapHtml=''; det.tabLabels=[]; det.barsMap={}; det.activeTab=''; det.activeBars=[];
   det.ilceSelected=''; det.ilceName=''; det.ilceBarsMap={};
   const normProv=String(prov).replace(/\d+$/,'');
@@ -1890,23 +1914,25 @@ function setCbDetailProvince(rn, prov){
     const out=cbCandDistPcts(provDf, cands, display);
     if (Object.keys(out).length){
       candPcts=out;
-      const means={}; let cnt=0;
-      for (const d of Object.keys(out)){ cnt++; for (const c of Object.keys(out[d])) means[c]=(means[c]||0)+out[d][c]; }
-      for (const c of Object.keys(means)) means[c]/=cnt;
-      labels.push('İl Geneli (Toplam)');
-      tabs['İl Geneli (Toplam)']=cbBarItemsDetail(means, candColors, candPP);
       const provDists=Object.keys(out);
       if (provDists.length>1){
+        const means={}; let cnt=0;
+        for (const d of provDists){ cnt++; for (const c of Object.keys(out[d])) means[c]=(means[c]||0)+out[d][c]; }
+        for (const c of Object.keys(means)) means[c]/=cnt;
+        labels.push('İl Geneli (Toplam)');
+        tabs['İl Geneli (Toplam)']=cbBarItemsDetail(means, candColors, candPP);
         for (const d of provDists){
           const m=String(d).match(/(\d+)$/);
           const label=`${m?m[1]:d}. Bölge`;
           const items=cbBarItemsDetail(out[d], candColors, candPP);
           if (items.length){ labels.push(label); tabs[label]=items; }
         }
+      } else if (provDists.length===1){
+        tabs['']=cbBarItemsDetail(out[provDists[0]], candColors, candPP);
       }
     }
   }
-  det.tabLabels=labels; det.barsMap=tabs; det.activeTab=labels[0]||''; det.activeBars=tabs[labels[0]||'']||[];
+  det.tabLabels=labels; det.barsMap=tabs; det.activeTab=labels[0]||''; det.activeBars=tabs[labels[0]||'']||tabs['']||[];
   if (candPcts){
     const means={}; let cnt=0;
     for (const d of Object.keys(candPcts)){ cnt++; for (const c of Object.keys(candPcts[d])) means[c]=(means[c]||0)+candPcts[d][c]; }
@@ -1934,7 +1960,7 @@ function setCbDetailIlce(rn, ilceId){
   if (!ilceId) return;
   const det=rn===1?cbState().r1:cbState().r2;
   if (ilceId===det.ilceSelected) return;
-  det.ilceSelected=ilceId; det.ilceName=to_tr_title(String(ilceId));
+  det.ilceSelected=ilceId; det.ilceName=getIlceName(String(det.prov).replace(/\d+$/,''), String(ilceId));
   renderCB();
 }
 function clearCbDetailIlce(rn){
@@ -1973,7 +1999,7 @@ async function renderCbCityMap(rn, det){
     candDistWinners[nDist]=entries[0][0];
     candDistColors[nDist]=get_heatmap_color(candColors[entries[0][0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,entries[0][1]/50)),0,1));
     const maxV=entries[0][1]||1;
-    let tipH=`<div class="tip-header">${to_tr_title(String(d))}</div>`;
+    let tipH=`<div class="tip-header">${getIlceName(normProv, nDist)}</div>`;
     for (const [c,v] of entries.slice(0,5)){
       tipH+=`<div class="tip-row"><div class="tip-party">${esc(c)}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${Math.min(100,(v/maxV)*100).toFixed(1)}%; background-color: ${candColors[c]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)}</div></div>`;
     }
@@ -2035,13 +2061,24 @@ function setCb2Vote(group, value){
   cb.cands2[1].votes[group]=Math.max(0,100-val);
   renderCB();
 }
+function setCb2Name(idx, value){
+  const cb=cbState();
+  if (!cb.cands2 || !cb.cands2[idx]) return;
+  const nm=String(value||'').trim();
+  if (!nm) return;
+  cb.cands2[idx].name=nm;
+  renderCB();
+}
 function bindCBEvents(){
   const on=(id,fn)=>{ const e=$('#pane_cb #'+id); if (e) e.onclick=fn; };
   on('cb-add-cand',()=>addCbCandidate());
   on('cb-reset-cands',()=>resetCbCandidates());
   on('cb-round1-btn',()=>computeCbRound1());
   on('cb-round2-btn',()=>computeCbRound2());
-  $$('#pane_cb .cb-name-input').forEach(inp=>{ inp.onchange=()=>{ setCbCandidateName(inp.getAttribute('data-cand'), inp.value); }; });
+  on('cb-dl-1',()=>downloadCbInfographic(1));
+  on('cb-dl-2',()=>downloadCbInfographic(2));
+  $$('#pane_cb .cb-name-input:not(.cb-r2-name-input)').forEach(inp=>{ inp.onchange=()=>{ setCbCandidateName(inp.getAttribute('data-cand'), inp.value); }; });
+  $$('#pane_cb .cb-r2-name-input').forEach(inp=>{ inp.onchange=()=>{ setCb2Name(parseInt(inp.getAttribute('data-r2-idx'),10), inp.value); }; });
   $$('#pane_cb .cb-num:not(.cb-r2-num)').forEach(inp=>{ inp.onchange=()=>{ setCbCandidateVote(inp.getAttribute('data-cand'), inp.getAttribute('data-group'), inp.value); }; });
   $$('#pane_cb .cb-r2-num').forEach(inp=>{ inp.onchange=()=>{ setCb2Vote(inp.getAttribute('data-group'), inp.value); }; });
   $$('#pane_cb .cb-party-btn').forEach(btn=>{ btn.onclick=()=>{ toggleCbPicker(btn.id.replace('cb-party-','')); }; });
@@ -2050,6 +2087,7 @@ function bindCBEvents(){
   $$('#pane_cb .cb-del').forEach(btn=>{ btn.onclick=()=>removeCbCandidate(btn.getAttribute('data-cand')); });
   $$('#pane_cb [data-act="cb-clear-ilce"]').forEach(btn=>{ btn.onclick=()=>clearCbDetailIlce(parseInt(btn.getAttribute('data-rn'),10)); });
   $$('#pane_cb .cb-dist-trigger').forEach(b=>{ b.addEventListener('click',()=>{ setCbDetailDistTab(parseInt(b.getAttribute('data-rn'),10), b.getAttribute('data-tab')); }); });
+  $$('#pane_cb #btn-cb-il-info').forEach(b=>{ b.onclick=()=>downloadCbIlInfographic(parseInt(b.getAttribute('data-rn'),10)); });
 }
 function renderCB(){
   const pane=$('#pane_cb');
@@ -2133,6 +2171,264 @@ function cbR2ResultsHtml(cb){
     <button class="btn-download" id="cb-dl-2">İNFOGRAFİK İNDİR (PNG)</button>
     <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
   </div>`;
+}
+
+// ---------------- İNFOGRAFİK (port of app.py generators + downloadSvgAsPng) ----------------
+const INFO_BASE_SEATS_2023 = {AKP:268,CHP:169,DEM:61,MHP:50,IYI:43,YRP:5,TIP:4,ZAFER:0,YENI:0,A:0,BBP:0,SAADET:0,HUDA:0,TKP:0,DEVA:0,DP:0,BTP:0};
+const LOGO_INNER_CACHE = {};
+async function fetchLogoInner(party){
+  if (LOGO_INNER_CACHE[party]!==undefined) return LOGO_INNER_CACHE[party];
+  try{
+    const txt = await fetch(logoURL(party)).then(r=>r.ok?r.text():'');
+    const m = /<svg\b[^>]*>([\s\S]*?)<\/svg>/i.exec(txt);
+    if (!m){ LOGO_INNER_CACHE[party]=''; return ''; }
+    let inner = m[1].replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'').replace(/<sodipodi:[^>]*\/?>/g,'');
+    const vbm = /viewBox\s*=\s*"([^"]+)"/.exec(txt);
+    const res = {inner, vb: vbm?vbm[1]:'0 0 64 64'};
+    LOGO_INNER_CACHE[party]=res;
+    return res;
+  }catch(e){ LOGO_INNER_CACHE[party]=''; return ''; }
+}
+function inlineLogoSvg(li, x, y, size){
+  if (!li || !li.inner) return '';
+  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="${li.vb}" preserveAspectRatio="xMidYMid meet" overflow="visible" xmlns="http://www.w3.org/2000/svg">${li.inner}</svg>`;
+}
+function cleanMapForInfographic(html){
+  let m = String(html).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<style[\s\S]*?<\/style>/g,'');
+  const im = /<svg\b[^>]*>[\s\S]*?<\/svg>/i.exec(m);
+  return im?im[0]:m;
+}
+async function appLogoInline(x, y, width, height){
+  try{
+    const txt = await fetch('logo.svg').then(r=>r.ok?r.text():'').catch(()=> '');
+    if (!txt) return '';
+    const m = /<svg\b[^>]*>([\s\S]*?)<\/svg>/i.exec(txt);
+    if (!m) return '';
+    const inner = m[1].replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'').replace(/<sodipodi:[^>]*\/?>/g,'');
+    const vbm = /viewBox\s*=\s*"([^"]+)"/.exec(txt);
+    const vb = vbm?vbm[1]:'0 0 300 34';
+    return `<svg x="${x}" y="${y}" width="${width}" height="${height}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" overflow="visible">${inner}</svg>`;
+  }catch(e){ return ''; }
+}
+// renders the colored Turkey map used inside infographics (no tooltips/badges)
+function infoTurkeyMapHtml(){
+  const df=state.fullResults;
+  const provWinners={}, distWinners={}, customColors={};
+  const byProv={};
+  for (const r of df) (byProv[r.province]=byProv[r.province]||[]).push(r);
+  for (const prov of Object.keys(byProv)){
+    const nrm=normalize_id(prov);
+    const agg=aggRows(byProv[prov]);
+    const top=agg.filter(o=>o.pct>0).sort((a,b)=>b.pct-a.pct)[0];
+    if (!top) continue;
+    provWinners[nrm]=top.party;
+    customColors[nrm]=get_heatmap_color(PARTY_COLORS[top.party]||'#888888', clamp(Math.max(0.3,Math.min(1.0,top.pct/65)),0,1));
+    const base=nrm.replace(/\d+$/,'');
+    if (['istanbul','ankara','izmir','bursa'].includes(base)){
+      provWinners[base]=top.party; customColors[base]=customColors[nrm];
+      for (let i=1;i<=3;i++){ provWinners[base+i]=top.party; customColors[base+i]=customColors[nrm]; }
+    }
+  }
+  const dWinners={};
+  for (const r of df){ if (!dWinners[r.d] || r.new_vote_pct>dWinners[r.d].vote) dWinners[r.d]={p:r.p,vote:r.new_vote_pct}; }
+  for (const d of Object.keys(dWinners)){
+    const nd=normalize_id(d);
+    distWinners[nd]=dWinners[d].p;
+    customColors[nd]=get_heatmap_color(PARTY_COLORS[dWinners[d].p]||'#888888', clamp(Math.max(0.3,Math.min(1.0,dWinners[d].vote/65)),0,1));
+  }
+  const seatsData={};
+  for (const r of df) seatsData[[r.d,r.p].join('\u0000')]=r.seats_won;
+  return renderColoredSvg(SVG_TURKIYE, {provWinners, distWinners, colorsDict:PARTY_COLORS, tooltipDict:{}, seatsData, showBadges:false, customColors, uid:'infogen'});
+}
+async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assignedParties, colors, alliances){
+  const partyToAly={};
+  for (const aly of Object.keys(alliances)) for (const p of alliances[aly]) partyToAly[p]=aly;
+  const winning=summaryRows.filter(r=>r.Vekil>0);
+  const blocks={};
+  for (const row of winning){ const k=partyToAly[row.Parti]||row.Parti; (blocks[k]=blocks[k]||[]).push(row); }
+  const sortedBlocks=Object.entries(blocks).sort((a,b)=>sumRows(b[1])-sumRows(a[1]));
+  function sumRows(rows){ return rows.reduce((a,r)=>a+r['Normalize Oy (%)'],0); }
+  const sortedPartyRows=[], blockSpans=[];
+  for (const [alyName,pRows] of sortedBlocks){
+    const startIdx=sortedPartyRows.length;
+    sortedPartyRows.push(...pRows.slice().sort((a,b)=>b['Normalize Oy (%)']-a['Normalize Oy (%)']));
+    if (sortedPartyRows.length-1>=startIdx && alyName in alliances && pRows.length>1) blockSpans.push([alyName,startIdx,sortedPartyRows.length-1]);
+  }
+  if (!sortedPartyRows.length) sortedPartyRows.push(...summaryRows.slice(0,4));
+  const cardSize=80, cardSpacing=22;
+  const startX=(1200-(sortedPartyRows.length*cardSize+(sortedPartyRows.length-1)*cardSpacing))/2;
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  for (const [alyName,sIdx,eIdx] of blockSpans){
+    const bx1=startX+sIdx*(cardSize+cardSpacing), bx2=startX+eIdx*(cardSize+cardSpacing)+cardSize;
+    let displayAly=alyName;
+    if (eIdx-sIdx===0 && alyName.length>15) displayAly=alyName.replace(' İttifakı',' İtt.');
+    const fSize=displayAly.length>15?'10':'12';
+    svg+=`<line x1="${bx1}" y1="36" x2="${bx2}" y2="36" stroke="#CCCCCC" stroke-width="2"/><text x="${(bx1+bx2)/2}" y="25" text-anchor="middle" font-size="${fSize}" font-weight="800" fill="#1A1A1A">${esc(displayAly)}</text>`;
+  }
+  for (let idx=0; idx<sortedPartyRows.length; idx++){
+    const row=sortedPartyRows[idx];
+    const pName=row.Parti, seats=Math.round(row.Vekil), vote=parseFloat(row['Normalize Oy (%)']);
+    const color=colors[pName]||'#888888', cx=startX+idx*(cardSize+cardSpacing);
+    svg+=`<rect x="${cx+3}" y="55" width="${cardSize}" height="${cardSize}" fill="#111827" rx="2"/><rect x="${cx}" y="52" width="${cardSize}" height="${cardSize}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
+    const li=await fetchLogoInner(pName);
+    if (li) svg+=inlineLogoSvg(li, cx+10, 62, cardSize-20);
+    else svg+=`<text x="${cx+cardSize/2}" y="${52+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(pName)}</text>`;
+    svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${vote.toFixed(2)}</text>`;
+  }
+  svg+=`<svg x="30" y="190" width="1120" height="475">${mapSvgClean}</svg>`;
+  const radii=[]; for (let r=130;r<265;r+=10) radii.push(r);
+  let seatsPerRow=radii.map(r=>Math.round(totalSeats*(r/radii.reduce((a,b)=>a+b,0))));
+  const spSum=seatsPerRow.reduce((a,b)=>a+b,0);
+  if (spSum!==totalSeats) seatsPerRow[seatsPerRow.length-1]+=(totalSeats-spSum);
+  const points=[];
+  for (let ri=0;ri<radii.length;ri++){
+    const r=radii[ri], s=seatsPerRow[ri];
+    if (s<=0) continue;
+    for (let j=0;j<s;j++){
+      const angle=Math.PI-(Math.PI*j)/Math.max(1,(s-1));
+      points.push({x:r*Math.cos(angle), y:r*Math.sin(angle), angle, r});
+    }
+  }
+  points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
+  svg+='<g transform="translate(930, 960)">';
+  for (let i=0;i<assignedParties.length;i++){
+    if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
+  }
+  svg+=`<text x="0" y="-272" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="0" y1="-262" x2="0" y2="-118" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="0" y="-12" text-anchor="middle" font-size="44" font-weight="900" fill="#1A1A1A">${totalSeats}</text></g>`;
+  svg+=await appLogoInline(40,932,280,32);
+  svg+='</svg>';
+  return svg;
+}
+async function generateRegionalInfographicSvg(provinceName, topParties, mapSvgClean, colors){
+  const cardSize=80, cardSpacing=22;
+  const rows=topParties.slice();
+  const startX=(1200-(rows.length*cardSize+(rows.length-1)*cardSpacing))/2;
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  svg+=`<text x="600" y="30" text-anchor="middle" font-size="20" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(provinceName)} İLİ SEÇİM SONUÇLARI</text>`;
+  for (let idx=0; idx<rows.length; idx++){
+    const row=rows[idx];
+    const pName=row.party, votePct=parseFloat(row.new_vote_pct), seats=Math.round(row.seats_won||0);
+    const color=colors[pName]||'#888888', cx=startX+idx*(cardSize+cardSpacing);
+    svg+=`<rect x="${cx+3}" y="55" width="${cardSize}" height="${cardSize}" fill="#111827" rx="2"/><rect x="${cx}" y="52" width="${cardSize}" height="${cardSize}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
+    const li=await fetchLogoInner(pName);
+    if (li) svg+=inlineLogoSvg(li, cx+10, 62, cardSize-20);
+    else svg+=`<text x="${cx+cardSize/2}" y="${52+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(pName)}</text>`;
+    svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${votePct.toFixed(2)}</text>`;
+  }
+  svg+=`<svg x="20" y="205" width="1160" height="685">${mapSvgClean}</svg>`;
+  svg+=await appLogoInline(40,932,280,32);
+  svg+='</svg>';
+  return svg;
+}
+async function generateCbInfographicSvg(title, candsData, mapSvgClean, candColors){
+  const cardWidth=170, cardHeight=65, cardSpacing=25;
+  const topCands=candsData.slice().sort((a,b)=>b[1]-a[1]).filter(c=>c[1]>0).slice(0,5);
+  if (!topCands.length) topCands.push(...candsData.slice(0,2));
+  const startX=(1200-(topCands.length*cardWidth+(topCands.length-1)*cardSpacing))/2;
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  svg+=`<text x="600" y="45" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
+  for (let idx=0; idx<topCands.length; idx++){
+    const [candName,pct]=topCands[idx];
+    const color=candColors[candName]||'#888888', cx=startX+idx*(cardWidth+cardSpacing);
+    svg+=`<rect x="${cx+3}" y="73" width="${cardWidth}" height="${cardHeight}" fill="#111827" rx="2"/><rect x="${cx}" y="70" width="${cardWidth}" height="${cardHeight}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
+    const lastWord=String(candName).split(' ').pop();
+    let candShort=lastWord.length>15?lastWord.toUpperCase().slice(0,14)+'.':lastWord.toUpperCase();
+    svg+=`<text x="${cx+cardWidth/2}" y="${70+cardHeight/2+6}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(candShort)}</text><text x="${cx+cardWidth/2}" y="180" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="28">% ${pct.toFixed(2)}</text>`;
+  }
+  svg+=`<svg x="20" y="205" width="1160" height="685">${mapSvgClean}</svg>`;
+  svg+=await appLogoInline(40,932,280,32);
+  svg+='</svg>';
+  return svg;
+}
+function downloadSvgAsPng(containerId, filename){
+  const container=document.getElementById(containerId);
+  if (!container) return;
+  const svg=container.querySelector('svg');
+  if (!svg) return;
+  const canvas=document.createElement('canvas');
+  const scale=2;
+  canvas.width=1200*scale; canvas.height=980*scale;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  const img=new Image();
+  img.onload=function(){
+    ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0);
+    const a=document.createElement('a');
+    a.download=filename; a.href=canvas.toDataURL('image/png'); a.click();
+  };
+  img.src=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], {type:'image/svg+xml;charset=utf-8'}));
+}
+async function downloadNationalInfographic(){
+  if (!state.fullResults.length) return;
+  const total=Object.values(state.userInputs).reduce((a,b)=>a+(b||0),0);
+  const display=displayUserNat();
+  const jointL=jointListsObj();
+  const katilanPartiler=[].concat(...Object.values(jointL));
+  const seatMap={}; for (const r of state.simResults) seatMap[r.party]=r.seats_won;
+  const adjBase=Object.assign({}, INFO_BASE_SEATS_2023);
+  for (const umbrella of Object.keys(jointL)) for (const jp of jointL[umbrella]) adjBase[umbrella]=(adjBase[umbrella]||0)+(adjBase[jp]||0);
+  const summaryRows=[];
+  for (const p of state.activeParties){
+    if (katilanPartiler.indexOf(p)>=0) continue;
+    const seats=seatMap[p]||0;
+    summaryRows.push({Parti:p, 'Normalize Oy (%)':Math.round((display[p]||0)*100)/100, Vekil:seats, 'Vekil Değişimi':seats-(adjBase[p]||0)});
+  }
+  summaryRows.sort((a,b)=>(b['Normalize Oy (%)']-a['Normalize Oy (%)'])||(b.Vekil-a.Vekil));
+  const toplamVekil=summaryRows.reduce((a,r)=>a+r.Vekil,0);
+  const sirali=[...PARLIAMENT_ORDER].filter(p=>summaryRows.some(r=>r.Parti===p)).concat(summaryRows.filter(r=>PARLIAMENT_ORDER.indexOf(r.Parti)<0).map(r=>r.Parti));
+  const assignedParties=[];
+  for (const p of sirali){ const v=summaryRows.find(r=>r.Parti===p); if (v) for (let i=0;i<v.Vekil;i++) assignedParties.push(p); }
+  const mapHtml=infoTurkeyMapHtml();
+  const svg=await generateInfographicSvg(summaryRows, cleanMapForInfographic(mapHtml), toplamVekil, assignedParties, PARTY_COLORS, alliancesObj());
+  let cont=document.getElementById('info-cont-general');
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-general'; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-general','turkiye_secim_infografik.png');
+}
+async function downloadMecIlInfographic(){
+  if (!state.detailProv) return;
+  const df=state.fullResults;
+  const provDf=df.filter(r=>normalize_id(r.province)===state.detailProv||String(r.province).replace(/\d+$/,'')===state.detailProv);
+  if (!provDf.length) return;
+  const agg=aggRows(provDf);
+  const topByVote=[...agg].sort((a,b)=>b.pct-a.pct).slice(0,5).map(o=>o.party);
+  const seatWinners=agg.filter(o=>o.seats>0).map(o=>o.party);
+  const keep=[]; for (const p of topByVote.concat(seatWinners)) if (keep.indexOf(p)<0) keep.push(p);
+  const topRows=keep.map(p=>{ const o=agg.find(x=>x.party===p); return {party:p, new_vote_pct:o?o.pct:0, seats_won:o?o.seats:0}; });
+  const cityHtml=state.detailCityMapHtml;
+  const mapClean=cityHtml?cleanMapForInfographic(cityHtml):'';
+  const svg=await generateRegionalInfographicSvg(get_display_label(state.detailProv), topRows, mapClean, PARTY_COLORS);
+  let cont=document.getElementById('info-cont-mec-il');
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-mec-il'; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-mec-il', get_display_label(state.detailProv).replace(/ /g,'_')+'_mec_infografik.png');
+}
+async function downloadCbInfographic(rn){
+  const cb=cbState();
+  const res=rn===1?cb.res1:cb.res2;
+  const mapHtml=rn===1?cb.mapHtml1:cb.mapHtml2;
+  if (!res.length || !mapHtml) return;
+  const candsData=res.map(r=>[r.name, parseFloat(r.vote_text.replace('%',''))]);
+  const candColors={}; for (const r of res) candColors[r.name]=r.party_color;
+  const title=rn===1?'CUMHURBAŞKANLIĞI 1. TUR SONUÇLARI':'CUMHURBAŞKANLIĞI 2. TUR SONUÇLARI';
+  const svg=await generateCbInfographicSvg(title, candsData, cleanMapForInfographic(mapHtml), candColors);
+  let cont=document.getElementById('info-cont-cb'+rn);
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-cb'+rn; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-cb'+rn, 'cb_'+rn+'_tur.png');
+}
+async function downloadCbIlInfographic(rn){
+  const det=rn===1?cbState().r1:cbState().r2;
+  if (!det.summary.length || !det.mapHtml) return;
+  const candsData=det.summary.map(s=>[s.name, parseFloat(s.pct.replace('%',''))]);
+  const candColors={}; for (const s of det.summary) candColors[s.name]=s.color;
+  const title=String(det.name)+' İLİ CUMHURBAŞKANLIĞI '+rn+'. TUR SONUÇLARI';
+  const svg=await generateCbInfographicSvg(title, candsData, cleanMapForInfographic(det.mapHtml), candColors);
+  let cont=document.getElementById('info-cont-cb-il-'+rn);
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-cb-il-'+rn; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-cb-il-'+rn, det.name.replace(/ /g,'_')+'_cb_infografik.png');
 }
 
 // ---------------- OLASILIK (Monte Carlo — port of app.py run_mc) ----------------
@@ -2445,7 +2741,7 @@ function runMc(){
       const dfPolls=processPolls(firms);
       if (!dfPolls) return;
       state.pollTableHtml=""; state.trendSvg="";
-      const tabloPartileri=allP.filter(p=>dfPolls.some(r=>p in r));
+      const tabloPartileri=state.activeParties.filter(p=>dfPolls.some(r=>p in r));
       if (tabloPartileri.length){
         state.pollTableHtml=buildPollTableHtml(dfPolls,tabloPartileri);
         state.trendSvg=buildTrendSvg(dfPolls,tabloPartileri);
@@ -2510,7 +2806,7 @@ function runMc(){
         scatterX.push(iktidarKoltuk);
       }
 
-      const cumhurProb=Math.round(cumhurWins/iterCount*100), muhProb=Math.round(muhalefetWins/iterCount*100);
+      const cumhurProb=Math.floor(cumhurWins/iterCount*100), muhProb=Math.floor(muhalefetWins/iterCount*100);
       if (cumhurProb>50) state.mc.titleHtml=mcTitleHtml(cumhurProb,"CUMHUR",PARTY_COLORS.AKP||'#FDA000');
       else if (muhProb>50) state.mc.titleHtml=mcTitleHtml(muhProb,"MUHALEFET",PARTY_COLORS.YENI||'#A7050E');
       else state.mc.titleHtml="<div style='text-align: center; font-weight: 900; font-size: 1.8rem; letter-spacing: -1px; text-transform: uppercase; margin-bottom: 1rem; color: #1A1A1A;'>MECLİS ÇOĞUNLUĞU <span style='color: #71716E !important;'>BAŞA BAŞ</span></div>";
@@ -2521,7 +2817,7 @@ function runMc(){
         const arr=mcSeatsHistory[p];
         const avg=arrMean(arr);
         if (avg>1){
-          confRows.push({p:p, lo:Math.round(arrPercentile(arr,2.5)), avg:Math.round(avg), hi:Math.round(arrPercentile(arr,97.5)), prob:Math.round((firstPartyWins[p]/iterCount)*100)});
+          confRows.push({p:p, lo:Math.floor(arrPercentile(arr,2.5)), avg:Math.floor(avg), hi:Math.floor(arrPercentile(arr,97.5)), prob:Math.floor((firstPartyWins[p]/iterCount)*100)});
         }
       }
       confRows.sort((a,b)=>b.avg-a.avg);
@@ -2643,14 +2939,16 @@ function renderOlasilik(){
 // ================= boot =================
 async function boot(){
   bindSegNav();
-  const [yrs, dists, svg, polls] = await Promise.all([
+  const [yrs, dists, svg, polls, ilceNames] = await Promise.all([
     fetch('data/base_years.json').then(r=>r.json()),
     fetch('data/districts.json').then(r=>r.json()),
     fetch('data/turkiye.svg').then(r=>r.text()),
-    fetch('data/polls.json').then(r=>r.json()).catch(()=>[])
+    fetch('data/polls.json').then(r=>r.json()).catch(()=>[]),
+    fetch('data/ilce_names.json').then(r=>r.json()).catch(()=>null)
   ]);
   YEARS=yrs; DISTRICTS=dists; SVG_TURKIYE=cleanSvgString(svg);
   window.BASE_YEARS=yrs; window.DISTRICTS=dists;
+  ILCE_NAMES=ilceNames;
   POLLS_RAW=polls||[];
   const seen={}; FIRM_NAMES_JS=[];
   for (const r of POLLS_RAW){ if (r && r.Firma && !seen[r.Firma]){ seen[r.Firma]=1; FIRM_NAMES_JS.push(String(r.Firma)); } }
