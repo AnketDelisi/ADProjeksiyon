@@ -2555,9 +2555,32 @@ function runLocal(){
     const majors=[];
     for (let i=0;i<Math.min(3,ranked.length);i++) majors.push(ranked[i][0]);
     for (const [p,v] of ranked.slice(3)){ if (v>5 && majors.length<4) majors.push(p); }
+    // alliance dropout: minor alliance members fully support their qualifying partners
+    const allyMap={}, allyNames={};
+    const allysObj=alliancesObj();
+    for (const aly of Object.keys(allysObj)){
+      for (const p of allysObj[aly]){ allyMap[p]=aly; }
+    }
+    const allyKeys=Object.keys(allyMap);
+    const flows={};
+    for (const p of keys){
+      if (majors.indexOf(p)>=0) continue;
+      const aly=allyMap[p];
+      if (!aly) continue;
+      const partners=allysObj[aly].filter(x=>x!==p && majors.indexOf(x)>=0);
+      if (!partners.length) continue;
+      const v=final0[p]||0;
+      if (v<=0) continue;
+      const wSum=partners.reduce((a,x)=>a+(final0[x]||0),0);
+      for (const x of partners){
+        const add=wSum>0?v*(final0[x]||0)/wSum:v/partners.length;
+        final0[x]+=add;
+        (flows[x]=flows[x]||[]).push({from:p, amount:add, ally:true});
+      }
+      final0[p]=0;
+    }
     // bloc attraction: minors' votes flow partly to majors
     const final=Object.assign({},final0);
-    const flows={};
     for (const [p,v] of Object.entries(final0)){
       if (majors.indexOf(p)>=0) continue;
       if (v<=0) continue;
@@ -2661,7 +2684,7 @@ function yerelDetailHtml(){
         const delta=v-base;
         const maj=r.majors.indexOf(p)>=0;
         const flowIn=r.flows[p];
-        const flowTxt=flowIn&&flowIn.length?`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}`).join(' · ')}</div>`:'';
+        const flowTxt=flowIn&&flowIn.length?`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`:'';
         return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
           <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
           <div style="flex:1;">
@@ -2691,7 +2714,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 yerel il sonuçları (ilçe ortalaması + 16 il düzeltmesi). Geri test (2024): %91.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 yerel il sonuçları (ilçe ortalaması + 26 il düzeltmesi). Geri test (2024): %91. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelMatrixHtml(){
