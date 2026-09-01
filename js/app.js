@@ -2739,13 +2739,16 @@ function buildBeeSwarmSvg(scatterX, scatterColors){
   const sy=(v)=>padT+(v+yMax)/(2*yMax)*(h-padT-padB);
   let svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg" style="background:#FFFFFF;">`;
   svg+=`<rect x="${sx(0)}" y="${padT}" width="${sx(300.5)-sx(0)}" height="${h-padT-padB}" fill="#E30A17" opacity="0.08"/>`;
-  svg+=`<rect x="${sx(275.5)}" y="${padT}" width="${sx(300.5)-sx(275.5)}" height="${h-padT-padB}" fill="#F5A623" opacity="0.10"/>`;
   svg+=`<rect x="${sx(300.5)}" y="${padT}" width="${sx(600)-sx(300.5)}" height="${h-padT-padB}" fill="#FF8C00" opacity="0.08"/>`;
-  const x301=sx(300.5), x276=sx(275.5);
+  const x301=sx(300.5);
   svg+=`<line x1="${x301}" y1="${padT}" x2="${x301}" y2="${h-padB}" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="6,6"/>`;
-  svg+=`<line x1="${x276}" y1="${padT}" x2="${x276}" y2="${h-padB}" stroke="#1A1A1A" stroke-width="1.5" stroke-dasharray="4,6"/>`;
   svg+=`<text x="${x301}" y="${padT-16}" text-anchor="middle" fill="#1A1A1A" font-size="13" font-weight="900">301 ÇOĞUNLUK SINIRI</text>`;
-  svg+=`<text x="${x276}" y="${padT-16}" text-anchor="middle" fill="#B45309" font-size="12" font-weight="900">276 AZINLIK SINIRI</text>`;
+  const legend=[['YENİ','#A7050E'],['MUHALEFET','#E30A17'],['AKP','#FDA000'],['CUMHUR','#FF8C00']];
+  let lx=padL;
+  for (const [lab,col] of legend){
+    svg+=`<rect x="${lx}" y="14" width="12" height="12" fill="${col}" stroke="#111827" stroke-width="1.5"/><text x="${lx+16}" y="24" fill="#1A1A1A" font-size="10" font-weight="800">${lab}</text>`;
+    lx+=16+Math.max(34, lab.length*8)+16;
+  }
   for (let gv=0; gv<=600; gv+=50){
     if (gv<xMin||gv>xMax) continue;
     const gx=sx(gv);
@@ -2768,7 +2771,7 @@ function buildBeeSwarmSvg(scatterX, scatterColors){
     }
     cy=Math.max(padT,Math.min(h-padB,cy));
     placed.push([px,cy]);
-    const majority = cv==='#FF8C00' ? " Cumhur ittifakı çoğunluğu" : cv==='#FFB74D' ? " Cumhur ittifakı azınlığı" : " muhalefet çoğunluğu";
+    const majority = cv==='#A7050E' ? " YENİ çoğunluğu" : cv==='#E30A17' ? " muhalefet çoğunluğu" : cv==='#FDA000' ? " AKP çoğunluğu" : cv==='#FF8C00' ? " Cumhur çoğunluğu" : " başa baş";
     svg+=`<g><title>${xv} sandalye — ${majority}</title><circle cx="${px.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${cv}" stroke="rgba(255,255,255,0.9)" stroke-width="0.6"/></g>`;
   }
   return svg+'</svg>';
@@ -2783,36 +2786,29 @@ function gaussRandom(rng){
   const u2=rng();
   return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
 }
-function mcFaceoffHtml(muhProb, cumhurProb, azProb, muhWins, cumhurWins, cumhurAz){
-  const _muhSeg=Math.max(muhProb,1.0), _cumSeg=Math.max(cumhurProb,1.0), _azSeg=Math.max(azProb,1.0);
-  const _totSeg=_muhSeg+_cumSeg+_azSeg;
-  const _muhW=(_muhSeg/_totSeg)*100, _cumW=(_cumSeg/_totSeg)*100, _azW=(_azSeg/_totSeg)*100;
-  const _leader=(muhProb>=cumhurProb)?"MUHALEFET":"CUMHUR";
-  const _lpct=Math.max(muhProb,cumhurProb);
-  return (
-    `<div style='margin-bottom:1.2rem;width:100%;'>`
-    +`<div style='text-align:center;font-size:10px;font-weight:900;letter-spacing:1px;color:#71716E;text-transform:uppercase;margin-bottom:6px;'>MECLİS ÇOĞUNLUĞU OLASILIĞI</div>`
-    +`<div style='display:flex;justify-content:center;align-items:baseline;gap:14px;margin-bottom:10px;flex-wrap:wrap;'>`
-    +`<span style='color:#E30A17;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${muhProb}</span>`
-    +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>MUHALEFET ÇOĞUNLUĞU</span>`
-    +`<span style='color:#CBD5E1;font-size:20px;font-weight:900;'>·</span>`
-    +`<span style='color:#B45309;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${azProb}</span>`
-    +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>AZINLIK</span>`
-    +`<span style='color:#CBD5E1;font-size:20px;font-weight:900;'>·</span>`
-    +`<span style='color:#FF8C00;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${cumhurProb}</span>`
-    +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>CUMHUR ÇOĞUNLUĞU</span>`
-    +`</div>`
-    +`<div style='position:relative;'>`
-    +`<div style='display:flex;height:16px;border:2px solid #111827;box-shadow:3px 3px 0 rgba(17,24,39,1);overflow:hidden;'>`
-    +`<div style='width:${_muhW.toFixed(1)}%;background:#E30A17;'></div>`
-    +`<div style='width:${_azW.toFixed(1)}%;background:#FFB74D;'></div>`
-    +`<div style='width:${_cumW.toFixed(1)}%;background:#FF8C00;'></div>`
-    +`</div>`
-    +`<div style='position:absolute;left:50%;top:-7px;transform:translateX(-50%);width:3px;height:30px;background:#111827;'></div>`
-    +`</div>`
-    +`<div style='display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:900;color:#71716E;'><span>MUHALEFET — ${muhWins} / 500 senaryo</span><span style='color:#1A1A1A;'>${_leader} %${_lpct}</span><span>CUMHUR — ${cumhurWins+cumhurAz} / 500 (çoğunluk ${cumhurWins} · azınlık ${cumhurAz})</span></div>`
-    +`</div>`
-  );
+function mcFaceoffHtml(items){
+  const segs=items.map(it=>Math.max(it.prob,1.0));
+  const tot=segs.reduce((a,b)=>a+b,0);
+  const leader=items.slice().sort((a,b)=>b.prob-a.prob)[0];
+  let html=`<div style='margin-bottom:1.2rem;width:100%;'>`;
+  html+=`<div style='text-align:center;font-size:10px;font-weight:900;letter-spacing:1px;color:#71716E;text-transform:uppercase;margin-bottom:6px;'>MECLİS ÇOĞUNLUĞU OLASILIĞI</div>`;
+  html+=`<div style='display:flex;justify-content:center;align-items:baseline;gap:14px;margin-bottom:10px;flex-wrap:wrap;'>`;
+  items.forEach((it,i)=>{
+    if (i>0) html+=`<span style='color:#CBD5E1;font-size:20px;font-weight:900;'>·</span>`;
+    html+=`<span style='color:${it.color};font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${it.prob}</span><span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>${it.label} ÇOĞUNLUĞU</span>`;
+  });
+  html+=`</div>`;
+  html+=`<div style='position:relative;'>`;
+  html+=`<div style='display:flex;height:16px;border:2px solid #111827;box-shadow:3px 3px 0 rgba(17,24,39,1);overflow:hidden;'>`;
+  items.forEach(it=>{ html+=`<div style='width:${((Math.max(it.prob,1.0)/tot)*100).toFixed(1)}%;background:${it.color};'></div>`; });
+  html+=`</div>`;
+  html+=`<div style='position:absolute;left:50%;top:-7px;transform:translateX(-50%);width:3px;height:30px;background:#111827;'></div>`;
+  html+=`</div>`;
+  html+=`<div style='display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:900;color:#71716E;flex-wrap:wrap;gap:4px;'>`;
+  items.forEach(it=>{ html+=`<span>${it.label} — ${it.wins} / 500 senaryo</span>`; });
+  html+=`<span style='color:#1A1A1A;'>${leader.label} %${leader.prob}</span>`;
+  html+=`</div></div>`;
+  return html;
 }
 function buildConfTableHtml(confRows){
   let html=(
@@ -2920,7 +2916,7 @@ function runMc(){
       const provDistCount={};
       for (const pr of Object.keys(provDist)) provDistCount[pr]=Object.keys(provDist[pr]).length;
       const rng=mulberry32(Math.floor(Math.random()*0x7fffffff)|0);
-      let cumhurWins=0,muhalefetWins=0,cumhurAz=0;
+      let yeniWins=0,muhWins=0,akpWins=0,cumhurWins=0,noneWins=0;
       const mcSeatsHistory={}, firstPartyWins={};
       for (const p of allP){ mcSeatsHistory[p]=[]; firstPartyWins[p]=0; }
       const districtWinHistory={};
@@ -2990,18 +2986,26 @@ function runMc(){
             districtWinHistory[normDist][wincand]=(districtWinHistory[normDist][wincand]||0)+1;
           }
         }
-        const iktidarKoltuk=(mcSeats.AKP||0)+(mcSeats.MHP||0)+(mcSeats.BBP||0)+(mcSeats.YRP||0)+(mcSeats.HUDA||0);
-        if (iktidarKoltuk>=301){ cumhurWins++; scatterColors.push('#FF8C00'); }
-        else if (iktidarKoltuk>=276){ cumhurAz++; scatterColors.push('#FFB74D'); }
-        else { muhalefetWins++; scatterColors.push('#E30A17'); }
-        scatterX.push(iktidarKoltuk);
+        const cumhurKoltuk=(mcSeats.AKP||0)+(mcSeats.MHP||0)+(mcSeats.BBP||0)+(mcSeats.YRP||0)+(mcSeats.HUDA||0);
+        const yeniKoltuk=mcSeats.YENI||0;
+        const akpKoltuk=mcSeats.AKP||0;
+        const muhKoltuk=600-cumhurKoltuk;
+        let ocol;
+        if (yeniKoltuk>=301){ yeniWins++; ocol='#A7050E'; }
+        else if (muhKoltuk>=301){ muhWins++; ocol='#E30A17'; }
+        else if (akpKoltuk>=301){ akpWins++; ocol='#FDA000'; }
+        else if (cumhurKoltuk>=301){ cumhurWins++; ocol='#FF8C00'; }
+        else { noneWins++; ocol='#71716E'; }
+        scatterColors.push(ocol);
+        scatterX.push(cumhurKoltuk);
       }
 
-      const cumhurProb=Math.floor(cumhurWins/iterCount*100), muhProb=Math.floor(muhalefetWins/iterCount*100), azProb=Math.floor(cumhurAz/iterCount*100);
-      if (cumhurProb>50) state.mc.titleHtml=mcTitleHtml(cumhurProb,"CUMHUR",PARTY_COLORS.AKP||'#FDA000');
-      else if (muhProb>50) state.mc.titleHtml=mcTitleHtml(muhProb,"MUHALEFET",PARTY_COLORS.YENI||'#A7050E');
+      const yeniProb=Math.floor(yeniWins/iterCount*100), muhProb=Math.floor(muhWins/iterCount*100), akpProb=Math.floor(akpWins/iterCount*100), cumhurProb=Math.floor(cumhurWins/iterCount*100);
+      const outItems=[{label:'YENİ',prob:yeniProb,wins:yeniWins,color:'#A7050E'},{label:'MUHALEFET',prob:muhProb,wins:muhWins,color:'#E30A17'},{label:'CUMHUR',prob:cumhurProb,wins:cumhurWins,color:'#FF8C00'},{label:'AKP',prob:akpProb,wins:akpWins,color:'#FDA000'}];
+      const leader=outItems.slice().sort((a,b)=>b.prob-a.prob)[0];
+      if (leader.prob>=50) state.mc.titleHtml=mcTitleHtml(leader.prob,leader.label,leader.color);
       else state.mc.titleHtml="<div style='text-align: center; font-weight: 900; font-size: 1.8rem; letter-spacing: -1px; text-transform: uppercase; margin-bottom: 1rem; color: #1A1A1A;'>MECLİS ÇOĞUNLUĞU <span style='color: #71716E !important;'>BAŞA BAŞ</span></div>";
-      state.mc.faceoffHtml=mcFaceoffHtml(muhProb,cumhurProb,azProb,muhalefetWins,cumhurWins,cumhurAz);
+      state.mc.faceoffHtml=mcFaceoffHtml(outItems);
 
       const confRows=[];
       for (const p of allP){
@@ -3049,7 +3053,7 @@ function runMc(){
         const rt=provTierMap[String(normDist).replace(/[0-9]+$/,'')];
         if (!rt) continue;
         const pc=PARTY_COLORS[rt.party]||'#888';
-        mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:inline-block;margin-top:8px;padding:2px 10px;border:2px solid #111827;background:${pc};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${rt.tier}</div>`;
+        mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:4px 0;border:2px solid #111827;background:${pc};color:#FFFFFF;font-weight:900;font-size:11px;letter-spacing:1px;text-align:center;">${rt.tier}</div>`;
       }
       state.mc.mapHtml=renderColoredSvg(SVG_TURKIYE,{provWinners:{},distWinners:mcDistWinners,colorsDict:PARTY_COLORS,tooltipDict:mcTooltipDict,seatsData:{},showBadges:false,customColors:mcolDict,uid:'mc',svgFile:'turkiye.svg',hiddenInputId:'hidden_prov_input_mc',detailSectionId:'mc_prov_detail_section'});
     } finally {
