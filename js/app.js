@@ -1678,7 +1678,7 @@ function cbBlockGridHtml(votes, candId, isR2){
   return cbVoteKeys().map(g=>`
     <div class="cb-block">
       <div><div class="cb-block-lbl" style="color:${bcols[g]||'#111827'}">${esc(g)}</div><div class="cb-block-tot">${btot[g]||'%0.0'}</div></div>
-      <input class="cb-num ${isR2?'cb-r2-num':''}" type="number" min="0" max="100" step="1" ${isR2?'':`data-cand="${candId}" `}data-group="${esc(g)}" value="${votes[g]}" />
+      <input class="cb-num ${isR2?'cb-r2-num':''}" type="number" min="0" max="100" step="1" ${isR2?'':`data-cand="${candId}" `}data-group="${esc(g)}" value="${votes[g]}" style="--cb-focus:${bcols[g]||'#CBD5E1'}" />
     </div>`).join('');
 }
 function cbCandidateCardHtml(c){

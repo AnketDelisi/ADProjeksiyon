@@ -299,22 +299,23 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 .cand-list{width:100%;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;align-items:stretch;padding-right:6px}
 .cand-list::-webkit-scrollbar{width:4px}
 .cand-list::-webkit-scrollbar-thumb{background:var(--c-border)}
-.cand-card{background:var(--c-surface);border:2px solid var(--c-edge);box-shadow:var(--shadow-md);padding:14px;width:100%;position:relative}
+.cand-card{background:var(--c-surface);border:2px solid var(--c-edge);box-shadow:var(--shadow-big);padding:14px;width:100%;position:relative}
 .cb-name-in{flex:1;min-width:0}
 .cb-mini-label{font-size:8px;font-weight:900;color:var(--c-text-muted);letter-spacing:1.2px;width:100%;margin-bottom:2px}
-.cb-name-input{width:100%;height:30px;font-weight:900;font-size:13px;padding:0 8px;font-family:var(--font);background:var(--sidebar-input-bg);color:var(--c-text-main);border:2px solid var(--c-edge);border-radius:2px}
-.cb-party-btn{width:96px;height:30px;flex-shrink:0;border:2px solid #111827;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-md)}
-.cb-party-btn:hover{filter:brightness(1.08)}
+.cb-name-input{width:100%;height:34px;font-weight:900;font-size:14px;padding:0 10px;font-family:var(--font);background:var(--sidebar-input-bg);color:var(--c-text-main);border:2px solid var(--c-edge);border-radius:2px;box-shadow:2px 2px 0 rgba(17,24,39,0.35)}
+.cb-name-input:focus{outline:none;background:#F4F2EC;box-shadow:inset 0 0 0 2px var(--c-accent-2)}
+.cb-party-btn{width:96px;height:34px;flex-shrink:0;border:2px solid #111827;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-big)}
+.cb-party-btn:hover{filter:brightness(1.08);box-shadow:2px 2px 0 rgba(17,24,39,1);transform:translate(1px,1px)}
 .cb-party-btn img{width:100%;height:100%;object-fit:contain}
 .cb-party-btn span{color:#fff;font-weight:900;font-size:11px;line-height:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 3px}
-.cb-del{background:transparent;color:var(--c-text-muted);border:none;border-radius:50%;width:28px;height:28px;font-size:12px;flex-shrink:0;cursor:pointer}
-.cb-del:hover{background:#F1F1EE;color:var(--c-accent)}
-.cb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;width:100%;align-items:stretch}
-.cb-block{width:100%;min-width:0}
+.cb-del{background:var(--c-surface);color:var(--c-text-muted);border:2px solid var(--c-edge);border-radius:2px;box-shadow:2px 2px 0 rgba(17,24,39,1);width:30px;height:30px;font-size:12px;flex-shrink:0;cursor:pointer}
+.cb-del:hover{background:#F1F1EE;color:var(--c-accent);box-shadow:1px 1px 0 rgba(17,24,39,1);transform:translate(1px,1px)}
+.cb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;align-items:stretch}
+.cb-block{width:100%;min-width:0;background:#F7F7F5;border:2px solid var(--c-edge);box-shadow:2px 2px 0 rgba(17,24,39,1);padding:6px}
 .cb-block-lbl{font-size:10px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cb-block-tot{font-size:9px;font-weight:800;color:var(--c-rule)}
-.cb-num{width:100%;background:var(--sidebar-input-bg);color:var(--c-text-main);border:2px solid var(--c-edge);border-radius:1px;font-weight:900;font-size:12px;font-family:var(--font);text-align:center;padding:2px 6px;height:26px}
-.cb-num:focus{outline:none;background:#F4F2EC;box-shadow:inset 0 0 0 2px var(--c-rule)}
+.cb-num{width:100%;background:#fff;color:var(--c-text-main);border:2px solid var(--c-edge);border-radius:1px;font-weight:900;font-size:13px;font-family:var(--font);text-align:center;padding:2px 6px;height:30px}
+.cb-num:focus{outline:none;background:#F4F2EC;box-shadow:inset 0 0 0 2px var(--cb-focus, var(--c-rule))}
 .cb-picker{position:absolute;top:34px;right:0;z-index:90;width:240px;background:var(--c-surface);border:2px solid var(--c-edge);box-shadow:var(--shadow-big);padding:6px;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
 .cb-picker::-webkit-scrollbar{width:4px}
 .cb-picker::-webkit-scrollbar-thumb{background:var(--c-border)}
