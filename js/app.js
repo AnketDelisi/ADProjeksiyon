@@ -2600,6 +2600,7 @@ function runLocal(){
       if (allysObj[aly].some(x=>x!==p && running.has(x))) dropSet.add(p);
     }
     const flows={};
+    const dropped=[];
     for (const p of dropSet){
       const aly=allyMap[p];
       if (!aly) continue;
@@ -2614,6 +2615,7 @@ function runLocal(){
         (flows[x]=flows[x]||[]).push({from:p, amount:add, ally:true});
       }
       final0[p]=0;
+      dropped.push(p);
     }
     // bloc attraction: minors' votes flow partly to majors
     const final=Object.assign({},final0);
@@ -2666,7 +2668,7 @@ function runLocal(){
     out[prov]={prov, winner:sortedF[0][0], winnerPct:sortedF[0][1],
       margin:sortedF.length>1?sortedF[0][1]-sortedF[1][1]:sortedF[0][1],
       second:sortedF.length>1?sortedF[1][0]:'',
-      shares:final, base, majors, flows, council, councilTotal, big:BUYUKSEHIR[prov]?1:0,
+      shares:final, base, majors, flows, council, councilTotal, dropped, popApplied:Object.keys(pop).length?pop:null, big:BUYUKSEHIR[prov]?1:0,
       incumbent:YEREL_2024.winners[prov]||''};
   }
   const counts={}, bigCounts={};
@@ -2744,6 +2746,7 @@ function yerelDetailHtml(){
     <div style="padding:0 2px">
       ${rows.map(([p,v])=>{
         const maj=r.majors.indexOf(p)>=0;
+        const boost=r.popApplied&&r.popApplied[p];
         const flowIn=r.flows[p];
         const flowTxt=flowIn&&flowIn.length?`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`:'';
         return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
@@ -2752,13 +2755,20 @@ function yerelDetailHtml(){
             <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
             ${flowTxt}
           </div>
+          ${boost?`<span style="display:inline-block;padding:2px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:9px;letter-spacing:0.5px;">ÇARPAN ×${parseFloat(boost).toFixed(1)}</span>`:''}
           <div style="width:60px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)}</div>
         </div>`;
       }).join('')}
     </div>
+    ${r.dropped&&r.dropped.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:10px;border-top:2px dashed #111827;">
+      <span style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1px;">ÇEKİLEN:</span>
+      ${r.dropped.map(p=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;">${esc(p)}</span>`).join('')}
+    </div>`:''}
   </div>`;
+  html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;width:100%;margin-top:12px;">`;
   html+=yerelAllyOverridesHtml(r.prov);
   html+=yerelPopHtml(r.prov, rows.map(x=>x[0]));
+  html+=`</div>`;
   html+=yerelCouncilHtml(r);
   return html;
 }
@@ -2782,7 +2792,7 @@ function yerelAllyOverridesHtml(prov){
     }
   }
   if (!rows.length) return '';
-  return `<div class="sb-card shadow" style="margin-top:12px">
+  return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">ADAY ÇEKİLME AYARLARI (İL)</div></div>
     <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">İttifak üyesinin bu ilde çekilip çekilmeyeceğini seçin. 'Otomatik': ana aday olamazsa ittifak ortağına tam destek verir.</div>
     ${rows.join('')}
@@ -2793,7 +2803,7 @@ function yerelPopHtml(prov, parties){
   const curEntry=Object.entries(pop).find(([p,m])=>m>0)||[];
   const curParty=curEntry[0]||'';
   const curMult=curEntry[1]||1;
-  return `<div class="sb-card shadow" style="margin-top:12px">
+  return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">POPÜLERLİK ÇARPANI (İL)</div></div>
     <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Adayın yerel popülaritesi: seçtiğiniz partinin bu ildeki oyu çarpanla artırılır.</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -2816,21 +2826,39 @@ function yerelCouncilHtml(r){
   const entries=Object.entries(c).sort((a,b)=>b[1]-a[1]);
   const dots=entries.map(([p,n])=>{
     const col=PARTY_COLORS[p]||'#888';
-    return ('<span style="display:inline-block;width:9px;height:9px;margin:1px;background:'+col+';border:1px solid #111827;"></span>').repeat(n);
+    return ('<span style="display:inline-block;width:8px;height:8px;background:'+col+';border:1px solid #111827;"></span>').repeat(n);
   }).join('');
-  const bars=entries.map(([p,n])=>{
-    const pct=Math.round(n/tot*100);
-    return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:4px;">
-      <div style="width:60px;font-weight:900;font-size:11px;color:${PARTY_COLORS[p]||'#111827'};white-space:nowrap;">${esc(p)}</div>
-      <div style="flex:1;height:12px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${pct}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
-      <div style="width:34px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">${n}</div>
+  const maj=Math.floor(tot/2)+1;
+  const allyMap={};
+  const allysObj=yerelAlliancesObj();
+  for (const aly of Object.keys(allysObj)) for (const p of allysObj[aly]) allyMap[p]=aly;
+  let majorityHolder='';
+  for (const [p,n] of entries){ if (n>=maj){ majorityHolder=p; break; } }
+  if (!majorityHolder){
+    for (const aly of Object.keys(allysObj)){
+      const sum=allysObj[aly].reduce((a,p)=>a+(c[p]||0),0);
+      if (sum>=maj){ majorityHolder=aly; break; }
+    }
+  }
+  const legend=entries.map(([p,n])=>{
+    const pct=tot>0?Math.round(n/tot*100):0;
+    const isMaj=majorityHolder===p;
+    const inMajBloc=majorityHolder&&allyMap[p]===majorityHolder;
+    return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:5px;${isMaj||inMajBloc?'border-left:3px solid #1A8917;padding-left:8px;':''}">
+      <span style="display:inline-block;width:12px;height:12px;background:${PARTY_COLORS[p]||'#888'};border:2px solid #111827;"></span>
+      <div style="flex:1;font-weight:900;font-size:11px;color:${PARTY_COLORS[p]||'#111827'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p)}</div>
+      ${isMaj?`<span style="display:inline-block;padding:1px 6px;border:2px solid #111827;background:#1A8917;color:#FFF;font-weight:900;font-size:9px;letter-spacing:0.5px;">ÇOĞUNLUK</span>`:''}
+      <div style="width:44px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">${n}</div>
+      <div style="width:38px;text-align:right;font-size:10px;font-weight:700;color:#71716E;font-variant-numeric:tabular-nums;">%${pct}</div>
     </div>`;
   }).join('');
   return `<div class="sb-card shadow" style="margin-top:12px">
     <div class="sb-kicker"><div class="bar"></div><div class="t">BELEDİYE MECLİSİ — ${tot} SANDALYE</div></div>
     <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Her partinin oyundan 10 puan düşülür, kalan oylar D'Hondt yöntemiyle dağıtılır.</div>
-    <div style="display:flex;flex-wrap:wrap;width:100%;margin-bottom:10px;">${dots}</div>
-    ${bars}
+    <div style="display:flex;flex-wrap:wrap;gap:2px;width:100%;margin-bottom:10px;">${dots}</div>
+    <div style="border-top:2px dashed #111827;margin-bottom:8px;"></div>
+    ${legend}
+    <div style="border-top:2px dashed #111827;margin-top:8px;padding-top:6px;font-size:10px;font-weight:900;color:#71716E;letter-spacing:1px;">ÇOĞUNLUK SINIRI: ${maj} SANDALYE ${majorityHolder?` · ÇOĞUNLUK: ${esc(majorityHolder)}`:''}</div>
   </div>`;
 }
 function yerelSettingsHtml(){
