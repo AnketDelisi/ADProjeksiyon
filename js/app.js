@@ -64,7 +64,7 @@ const state = {
   cb:null,
   selectedFirms:[],
   hataPayi:2.0,
-  mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:""},
+  mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2858,6 +2858,15 @@ function buildConfTableHtml(confRows){
 function firmChipHtml(f){
   return `<div class="member-chip"><span class="t">${esc(f)}</span><button type="button" title="Kaldır">✕</button></div>`;
 }
+// ---- province race ratings (5-tier) ----
+const TIER_COLORS = {'KESİN':'#1A8917','GÜÇLÜ':'#4CAF50','EĞİLİMLİ':'#F5A623','HAFİF EĞİLİMLİ':'#F97316','BAŞA BAŞ':'#E00000'};
+function provTier(margin){
+  if (margin>15) return 'KESİN';
+  if (margin>10) return 'GÜÇLÜ';
+  if (margin>5) return 'EĞİLİMLİ';
+  if (margin>2.5) return 'HAFİF EĞİLİMLİ';
+  return 'BAŞA BAŞ';
+}
 function runMc(){
   if (state.mc.running) return;
   const firms=state.selectedFirms||[];
@@ -2900,11 +2909,22 @@ function runMc(){
       const provSet={};
       for (const key of Object.keys(baseObj.base)){ const prov=String(key.split('|')[0]).replace(/[0-9]+$/,''); provSet[prov]=1; }
       const MC_PROVS=Object.keys(provSet);
+      // per-province district counts (for mean pct aggregation)
+      const provDist={};
+      for (const key of Object.keys(baseObj.base)){
+        const d=String(key.split('|')[0]);
+        const pr=d.replace(/[0-9]+$/,'');
+        if (!provDist[pr]) provDist[pr]={};
+        provDist[pr][d]=1;
+      }
+      const provDistCount={};
+      for (const pr of Object.keys(provDist)) provDistCount[pr]=Object.keys(provDist[pr]).length;
       const rng=mulberry32(Math.floor(Math.random()*0x7fffffff)|0);
       let cumhurWins=0,muhalefetWins=0,cumhurAz=0;
       const mcSeatsHistory={}, firstPartyWins={};
       for (const p of allP){ mcSeatsHistory[p]=[]; firstPartyWins[p]=0; }
       const districtWinHistory={};
+      const provWinCount={}, provMarginSum={};
       const scatterX=[],scatterColors=[];
 
       for (let i=0;i<iterCount;i++){
@@ -2934,6 +2954,23 @@ function runMc(){
         const mcSeats={};
         for (const r of dfMc) mcSeats[r.p]=(mcSeats[r.p]||0)+r.seats_won;
         for (const p of allP) mcSeatsHistory[p].push(mcSeats[p]||0);
+        // per-province race tracking: mean pct per party -> top-2 margin
+        const provAgg={};
+        for (const r of dfMc){
+          const pr=String(r.province).replace(/[0-9]+$/,'');
+          const ag=provAgg[pr]||(provAgg[pr]={});
+          ag[r.p]=(ag[r.p]||0)+r.new_vote_pct;
+        }
+        for (const pr of Object.keys(provAgg)){
+          const cnt=provDistCount[pr]||1;
+          const pcts=Object.entries(provAgg[pr]).map(([p,s])=>[p,s/cnt]).sort((a,b)=>b[1]-a[1]);
+          if (!pcts.length) continue;
+          const winner=pcts[0][0];
+          if (!provWinCount[pr]) provWinCount[pr]={};
+          provWinCount[pr][winner]=(provWinCount[pr][winner]||0)+1;
+          const margin=pcts.length>1?(pcts[0][1]-pcts[1][1]):pcts[0][1];
+          provMarginSum[pr]=(provMarginSum[pr]||0)+margin;
+        }
         const seatKeys=Object.keys(mcSeats);
         if (seatKeys.length){
           let fp=seatKeys[0],mx=-1;
@@ -2995,6 +3032,25 @@ function runMc(){
         }
         mcTooltipDict[normDist]=partsHtml.join("");
       }
+      // province race ratings + tier chip on every district tooltip of that province
+      const provRatings=[];
+      for (const pr of Object.keys(provWinCount)){
+        const counts=provWinCount[pr];
+        let topParty=null,tcnt=-1;
+        for (const p of Object.keys(counts)){ if (counts[p]>tcnt){ tcnt=counts[p]; topParty=p; } }
+        const prob=Math.floor((tcnt/iterCount)*100);
+        const margin=(provMarginSum[pr]||0)/iterCount;
+        provRatings.push({prov:pr, party:topParty, prob, margin, tier:provTier(margin)});
+      }
+      provRatings.sort((a,b)=>a.margin-b.margin);
+      state.mc.provRatings=provRatings;
+      const provTierMap={}; for (const rt of provRatings) provTierMap[rt.prov]=rt;
+      for (const normDist of Object.keys(mcTooltipDict)){
+        const rt=provTierMap[String(normDist).replace(/[0-9]+$/,'')];
+        if (!rt) continue;
+        const pc=PARTY_COLORS[rt.party]||'#888';
+        mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:inline-block;margin-top:8px;padding:2px 10px;border:2px solid #111827;background:${pc};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${rt.tier}</div>`;
+      }
       state.mc.mapHtml=renderColoredSvg(SVG_TURKIYE,{provWinners:{},distWinners:mcDistWinners,colorsDict:PARTY_COLORS,tooltipDict:mcTooltipDict,seatsData:{},showBadges:false,customColors:mcolDict,uid:'mc',svgFile:'turkiye.svg',hiddenInputId:'hidden_prov_input_mc',detailSectionId:'mc_prov_detail_section'});
     } finally {
       state.mc.running=false;
@@ -3025,6 +3081,8 @@ function bindOlasilikEvents(){
     const v=parseFloat(hata.value);
     if (!isNaN(v)) state.hataPayi=clamp(v,0.5,5.0);
   };
+  const tier=document.getElementById('mc-tier-filter');
+  if (tier) tier.onchange=()=>{ state.mc.tierFilter=tier.value; renderOlasilik(); };
 }
 function renderOlasilik(){
   const pane=$('#pane_538');
@@ -3069,6 +3127,32 @@ function renderOlasilik(){
       <div class="sb-kicker"><div class="bar"></div><div class="t">TÜRKİYE OLASILIK HARİTASI</div></div>
       <div class="map-frame">${state.mc.mapHtml||emptyMap()}</div>
     </div>`;
+    if (state.mc.provRatings && state.mc.provRatings.length){
+      const tf=state.mc.tierFilter||'TÜMÜ';
+      const filtered=tf==='TÜMÜ'?state.mc.provRatings:state.mc.provRatings.filter(r=>r.tier===tf);
+      const tierChip=(t)=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${TIER_COLORS[t]||'#71716E'};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${t}</span>`;
+      html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;flex-wrap:wrap;gap:8px;">
+          <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">İL BAZLI YARIŞ KARNESİ</div></div>
+          <select id="mc-tier-filter" style="height:34px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 8px;background:#fff;color:#1A1A1A;">
+            ${['TÜMÜ','KESİN','GÜÇLÜ','EĞİLİMLİ','HAFİF EĞİLİMLİ','BAŞA BAŞ'].map(t=>`<option value="${t}" ${t===tf?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--c-text-muted);margin:8px 0 10px 0;">En dar farktan başlayarak 81 ilin durumu (500 simülasyon ortalaması). Kademe eşikleri: KESİN &gt;15 · GÜÇLÜ 10-15 · EĞİLİMLİ 5-10 · HAFİF EĞİLİMLİ 2.5-5 · BAŞA BAŞ &lt;2.5 puan.</div>
+        <div style="overflow-x:auto;"><table class="conf-table" style="min-width:560px;"><thead><tr><th>İl</th><th>Önde Giden Parti</th><th style="text-align:right;">1. Parti Olasılığı</th><th style="text-align:right;">Ort. Fark</th><th style="text-align:right;">Kademe</th></tr></thead><tbody>
+          ${filtered.map(r=>{
+            const pc=PARTY_COLORS[r.party]||'#888';
+            return `<tr>
+              <td style="font-weight:900;color:#1A1A1A;">${esc(get_display_label(r.prov))}</td>
+              <td style="font-weight:900;color:${pc};white-space:nowrap;">${esc(r.party)}</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums;">%${r.prob}</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:900;color:#1A1A1A;">${r.margin.toFixed(1)}</td>
+              <td style="text-align:right;">${tierChip(r.tier)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody></table></div>
+      </div>`;
+    }
     html+=`</div>`;
   }
   // 4) trend
