@@ -955,7 +955,7 @@ function renderSidebar(){
   const tot=Object.values(state.userInputs).reduce((a,b)=>a+(b||0),0);
   const rem=100-tot;
   const gecerli=()=>{ let s=state.w18+state.w23+state.w24; if (!s) return ''; const f=w=>`%${Math.round(w/s*100)}`; return `${f(state.w18)} · ${f(state.w23)} · ${f(state.w24)}`; };
-  let html=`<div class="sidebar-logo"><img src="logo.svg" alt="AD Projeksiyon" style="width:100%;max-width:220px;height:auto;" onerror="this.style.display='none';document.getElementById('sidebar-logo-fallback').style.display='block';"/><div id="sidebar-logo-fallback" style="display:none;font-weight:900;font-size:20px;letter-spacing:1px;">AD PROJEKSİYON</div></div>`;
+  let html=`<div class="sidebar-logo"><img src="logo.svg" alt="AD Projeksiyon" style="display:block;width:100%;max-width:220px;height:auto;margin:0 auto;" onerror="this.style.display='none';document.getElementById('sidebar-logo-fallback').style.display='block';"/><div id="sidebar-logo-fallback" style="display:none;font-weight:900;font-size:20px;letter-spacing:1px;text-align:center;">AD PROJEKSİYON</div></div>`;
   html+=`<div class="sb-card shadow"><button class="btn-calc" id="btn-run">SİMÜLASYONU ÇALIŞTIR</button>
     <div style="margin-top:16px"><div class="sim-select-wrap">
       <select id="scenario-select">${Object.keys(PREDEFINED_SCENARIOS).map(s=>`<option ${s===state.scenario?'selected':''}>${esc(s)}</option>`).join('')}</select>
