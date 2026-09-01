@@ -106,6 +106,73 @@ function get_display_name(norm_id){ return PROVINCE_NAMES[norm_id] || to_tr_titl
 function sig(x){ return 1/(1+Math.exp(-x)); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
+const JOINT_LIST_2023_CORRECTIONS = {
+  'adiyaman': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.3},
+  'corum': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.35},
+  'erzincan': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.2},
+  'hakkari': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.2},
+  'batman': [
+    {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.2},
+    {'from_party': 'AKP', 'to_party': 'HUDA', 'transfer_rate': 0.4},
+  ],
+  'duzce': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.3},
+  'bartin': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.25},
+  'rize': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.3},
+  'van': {'from_party': 'CHP', 'to_party': 'IYI', 'transfer_rate': 0.2},
+  'yozgat': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.55},
+  'aksaray': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.4},
+  'bitlis': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.4},
+  'mus': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.3},
+  'bayburt': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.4},
+  'gumushane': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.4},
+  'cankiri': {'from_party': 'IYI', 'to_party': 'CHP', 'transfer_rate': 0.4},
+  'tunceli': {'from_party': 'CHP', 'to_party': 'DEM', 'transfer_rate': 0.25},
+};
+
+const ALL_PROVINCE_COORDS = {
+  'kars': [1935,260], 'tunceli': [1520,460], 'karaman': [830,750], 'ankara1': [750,410], 'konya': [730,620],
+  'izmir2': [80,500], 'elazig': [1510,535], 'malatya': [1350,540], 'afyonkarahisar': [510,525], 'erzincan': [1510,370],
+  'burdur': [455,705], 'bursa2': [390,260], 'bursa1': [310,310], 'ordu': [1310,190], 'adana': [1060,740],
+  'giresun': [1415,210], 'osmaniye': [1155,745], 'ankara3': [690,300], 'ankara2': [790,300], 'agri': [1925,375],
+  'kayseri': [1100,525], 'sakarya': [510,215], 'gaziantep': [1300,760], 'denizli': [370,670], 'kutahya': [395,430],
+  'amasya': [1100,210], 'trabzon': [1560,185], 'artvin': [1790,145], 'diyarbakir': [1615,610], 'duzce': [580,180], 'sinop': [1015,65]
+};
+
+const ALLIANCE_ABBREVS = {
+  "Cumhur İttifakı": "CUMHUR",
+  "Emek ve Özgürlük İttifakı": "EMEK",
+  "Emek ve Özgürlük": "EMEK",
+  "Millet İttifakı": "MİLLET",
+  "Sol Muhalefet": "SOL",
+  "Milliyetçi Muhalefet": "MİLLİYETÇİ",
+  "Muhafazakar Muhalefet": "MUHAFAZAKAR",
+  "Muhafazakâr Muhalefet": "MUHAFAZAKAR",
+  "Cumhur": "CUMHUR",
+  "Emek": "EMEK",
+  "Sol": "SOL",
+};
+
+function _tr_strip(s){
+  return [...s].map(ch => trLowerMap[ch] === undefined ? (trUpperMap[ch] !== undefined ? ch.toLowerCase() : ch) : ch === trUpperMap[ch] ? ch : ch).join('');
+}
+
+function abbreviate_alliance(name){
+  name = String(name || '').trim();
+  if (ALLIANCE_ABBREVS[name]) return ALLIANCE_ABBREVS[name];
+  const first = name.split(/\s+/)[0].replace(/[^A-Za-zÇĞİIÖŞÜçğıöşü]/g,'');
+  const up = [...first].map(ch => trUpperMap[ch.toLowerCase()] || ch.toUpperCase()).join('');
+  return _tr_strip(up) || "BLOK";
+}
+
+function to_tr_upper(text){
+  if (typeof text !== 'string') return '';
+  return [...text].map(ch => trUpperMap[ch] || ch.toUpperCase()).join('');
+}
+function to_tr_lower(text){
+  if (typeof text !== 'string') return '';
+  return [...text].map(ch => trLowerMap[ch] || ch.toLowerCase()).join('');
+}
+
 // 538 probability color (from get_probability_color, mirror Python exactly)
 function get_probability_color(party, wins, iter_count){
   const base = PARTY_COLORS[party] || '#888888';
@@ -159,4 +226,4 @@ function sampleGamma(alpha, rng){
   }
 }
 
-if (typeof module !== 'undefined') module.exports = {PARTY_COLORS, BASE_PARTIES, OZEL_SIRA, PARLIAMENT_ORDER, PREDEFINED_SCENARIOS, DEFAULT_TRANSITIONS, CB_GROUPS, CB_GROUP_LIST, DEFAULT_CB_CANDS_1, REGIONAL_BOOSTS_DEFAULT, PROVINCE_NAMES, normalize_id, to_tr_title, get_display_name, clamp, sig, get_probability_color, get_heatmap_color, mulberry32, dirichletSample};
+if (typeof module !== 'undefined') module.exports = {PARTY_COLORS, BASE_PARTIES, OZEL_SIRA, PARLIAMENT_ORDER, PREDEFINED_SCENARIOS, DEFAULT_TRANSITIONS, JOINT_LIST_2023_CORRECTIONS, ALL_PROVINCE_COORDS, ALLIANCE_ABBREVS, abbreviate_alliance, to_tr_upper, to_tr_lower, CB_GROUPS, CB_GROUP_LIST, DEFAULT_CB_CANDS_1, REGIONAL_BOOSTS_DEFAULT, PROVINCE_NAMES, normalize_id, to_tr_title, get_display_name, clamp, sig, get_probability_color, get_heatmap_color, mulberry32, dirichletSample};

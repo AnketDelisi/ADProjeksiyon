@@ -1,27 +1,114 @@
-// ===== Core simulation engine (port of app.py run_simulation) =====
+// ===== Core simulation engine (port of app.py) =====
+// Dynamic base: per-year raw source rows (base_years.json) weighted by w18/w23/w24,
+// then transition matrix (DEFAULT_TRANSITIONS + custom party defs) applied per district.
+// run_simulation is district-agnostic: derives districts from the base object itself,
+// so it works for the national 87-district map AND per-province ilce maps.
 
-// config.js provides these as browser globals (shared lexical scope, bare names);
-// in Node they live in module.exports. Resolve lazily.
+// config.js provides browser globals; in Node they live in module.exports.
 function _cfg(){ return (typeof module !== 'undefined' && require) ? require('./config.js') : null; }
 function _B(){ const c=_cfg(); return c ? c.BASE_PARTIES : BASE_PARTIES; }
+function _OS(){ const c=_cfg(); return c ? c.OZEL_SIRA : OZEL_SIRA; }
+function _DT(){ const c=_cfg(); return c ? c.DEFAULT_TRANSITIONS : DEFAULT_TRANSITIONS; }
 function _clamp(){ const c=_cfg(); return c ? c.clamp : clamp; }
 function _sig(){ const c=_cfg(); return c ? c.sig : sig; }
 function getDISTRICTS(){ return (typeof module!=='undefined') ? globalThis.DISTRICTS : window.DISTRICTS; }
-function getBASEDATA(){ return (typeof module!=='undefined') ? globalThis.BASE_DATA : window.BASE_DATA; }
+function getBASEYEARS(){ return (typeof module!=='undefined') ? globalThis.BASE_YEARS : window.BASE_YEARS; }
 function _getDisplayName(x){ const c=_cfg(); return c ? c.get_display_name(x) : get_display_name(x); }
+function _normId(x){ const c=_cfg(); return c ? c.normalize_id(x) : normalize_id(x); }
 
-function _weightedBase(w18, w23, w24){
-  // NOTE: The transition-weighted base (apply_custom_parties with DEFAULT_TRANSITIONS,
-  // default weights 10/80/10) is already baked into base.json by the converter.
-  // This returns the baked base directly (weights params accepted for signature parity).
+// all_parties ordering: OZEL_SIRA first, then any remaining base/custom parties
+function _allParties(customDefs){
+  const custom = (customDefs && typeof customDefs === 'object') ? Object.keys(customDefs) : [];
+  const base = _B().slice();
+  const pool = base.concat(custom.filter(cp => base.indexOf(cp) === -1));
+  const basic = (_OS()).filter(p => pool.indexOf(p) !== -1);
+  return basic.concat(pool.filter(p => basic.indexOf(p) === -1));
+}
+
+// Aggregate base_years rows into {d: {p: {v18,v23,v24}}}
+function _yearDataMap(rows){
+  const map = {};
+  for (const r of rows){
+    if (!map[r.d]) map[r.d] = {};
+    map[r.d][r.p] = {v18:r.v18, v23:r.v23, v24:r.v24};
+  }
+  return map;
+}
+
+// Build transition matrix W: target -> source -> pct/100
+function _weightMatrix(customDefs){
+  const allDefs = {};
+  for (const t of Object.keys(_DT())) allDefs[t] = Object.assign({}, _DT()[t]);
+  const custom = (customDefs && typeof customDefs === 'object') ? customDefs : {};
+  for (const cp of Object.keys(custom)){
+    if (custom[cp] && custom[cp].bases) allDefs[cp] = Object.assign({}, custom[cp].bases);
+  }
+  const W = {}; // target -> {source: pct/100}
+  for (const t of Object.keys(allDefs)){
+    W[t] = {};
+    for (const s of Object.keys(allDefs[t])) W[t][s] = allDefs[t][s] / 100.0;
+  }
+  return W;
+}
+
+// Core: weighted source per district -> transition matrix -> derived base + national base
+// yearData: {d: {p: {v18,v23,v24}}};  seats: {d: count}
+// Returns {base: {d|p: derived pct}, nat: {p: national pct (seat-weighted)}}
+function applyCustomPartiesJS(yearData, seats, w18, w23, w24, customDefs){
+  const W = _weightMatrix(customDefs);
+  const targets = Object.keys(W);
+  // source parties present in data (pivot columns)
+  const pivotCols = {};
+  for (const d of Object.keys(yearData)) for (const p of Object.keys(yearData[d])) pivotCols[p] = 1;
+  const srcKeys = {};
+  for (const t of Object.keys(W)) for (const s of Object.keys(W[t])) srcKeys[s] = 1;
+  const common = Object.keys(srcKeys).filter(s => pivotCols[s]);
+
+  const totW = (w18 + w23 + w24) || 100;
+  const wn18 = w18/totW, wn23 = w23/totW, wn24 = w24/totW;
+
+  const base = {};
+  const nat = {};
+  let totalSeats = 0;
+  for (const d of Object.keys(seats)) totalSeats += seats[d] || 0;
+
+  for (const d of Object.keys(yearData)){
+    const src = yearData[d];
+    const wRaw = {};
+    for (const p of Object.keys(src)){
+      const v = src[p];
+      const wv = (v.v18||0)*wn18 + (v.v23||0)*wn23 + (v.v24||0)*wn24;
+      if (wv !== 0) wRaw[p] = wv;
+    }
+    const sCount = seats[d] || 0;
+    for (const t of targets){
+      let val = 0;
+      const row = W[t];
+      for (const s of common){
+        const srcPct = wRaw[s];
+        const m = row[s];
+        if (srcPct && m) val += srcPct * m;
+      }
+      const key = d + '|' + t;
+      base[key] = val;
+      if (sCount > 0) nat[t] = (nat[t] || 0) + val * sCount;
+    }
+  }
+  if (totalSeats > 0){
+    for (const t of Object.keys(nat)) nat[t] = nat[t] / totalSeats;
+  }
+  return { base, nat };
+}
+
+// National base object at arbitrary weights + custom parties
+// Returns {base, seats, nat}
+function _weightedBase(w18, w23, w24, customDefs){
   const DISTRICTS = getDISTRICTS();
   const seatByNorm = {};
   for (const d of DISTRICTS) seatByNorm[d.norm] = d.seats;
-  const map = {};
-  for (const r of getBASEDATA()){
-    if (r.base_vote_pct !== 0) map[r.d+'|'+r.p] = r.base_vote_pct;
-  }
-  return { base: map, seats: seatByNorm };
+  const yearData = _yearDataMap(getBASEYEARS());
+  const res = applyCustomPartiesJS(yearData, seatByNorm, w18, w23, w24, customDefs);
+  return { base: res.base, seats: seatByNorm, nat: res.nat };
 }
 
 function _get_qualified_parties(working_nat, alliances, threshold, all_parties){
@@ -39,7 +126,6 @@ function _get_qualified_parties(working_nat, alliances, threshold, all_parties){
 }
 
 function _alloc_divisor(votes, s, method){
-  // votes: array, s: seats; returns count per party (same length as votes)
   let divs = [];
   if (method === "Sainte-Laguë" || method === "Modifiye Sainte-Laguë"){
     for (let i=1;i<=s;i++) divs.push(2*i-1);
@@ -50,7 +136,6 @@ function _alloc_divisor(votes, s, method){
   } else {
     for (let i=1;i<=s;i++) divs.push(i);
   }
-  // collect all quotients
   const quot=[];
   for (let pi=0; pi<votes.length; pi++){
     for (let di=0; di<s; di++){
@@ -70,7 +155,6 @@ function _alloc_quota(votes, s, method){
   let out = new Array(votes.length).fill(0);
   let used = 0;
   for (let i=0;i<votes.length;i++){ out[i]=Math.floor(votes[i]/quota); used+=out[i]; }
-  // remaining seats by largest remainder
   let rem = s-used;
   if (rem>0){
     const idx = votes.map((v,i)=>[v/quota - out[i], i]).sort((a,b)=>b[0]-a[0]);
@@ -79,27 +163,30 @@ function _alloc_quota(votes, s, method){
   return out;
 }
 
-// Orchestrates district projection + allocation. Returns list of {d, p, new_vote_pct, seats_won, province, seat_count}
-function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, threshold, allocation_method, regional_boosts){
+// Orchestrates district projection + allocation. Returns rows {d, p, new_vote_pct, seats_won, province, seat_count}
+// baseObj: {base: {d|p: pct}, seats: {d: count}} — district set is derived from baseObj.base keys
+function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, threshold, allocation_method, regional_boosts, all_parties, baseDistricts){
   const clamp = _clamp(), sig = _sig();
-  const all_parties = _B();
+  const partiesAll = all_parties || _allParties(null);
   const working_nat = {...user_nat};
   for (const umbrella of Object.keys(joint_lists)){
     for (const jp of joint_lists[umbrella]) { working_nat[umbrella] += working_nat[jp]||0; working_nat[jp]=0.0; }
   }
-  const qualified = _get_qualified_parties(working_nat, alliances, threshold, all_parties);
+  const qualified = _get_qualified_parties(working_nat, alliances, threshold, partiesAll);
 
   const { base, seats } = baseObj;
-  const DISTRICTS = getDISTRICTS();
-  // Build per (d,p): R, P_c, B_c
-  const districtNorms = DISTRICTS.map(d=>d.norm);
-  const partiesAll = all_parties;
+  // district set from base keys (d|p prefix) — deterministic order
+  let districtNorms = baseDistricts || null;
+  if (!districtNorms){
+    const set = {};
+    for (const key of Object.keys(base)) set[key.split('|')[0]] = 1;
+    districtNorms = Object.keys(set).sort();
+  }
 
-  // P_c per party (with regional boosts)
   const Pc = {};
   for (const p of partiesAll) Pc[p] = user_nat[p] || 0.0;
 
-  const df = []; // {d,p,R,Pc,Bc}
+  const df = [];
   for (const d of districtNorms){
     for (const p of partiesAll){
       const R = base[d+'|'+p] || 0.0;
@@ -109,19 +196,16 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
         const province = String(d).replace(/[0-9]+$/,'');
         const bo = regional_boosts[p];
         if (bo && bo.multiplier > 1.0){
-          // Replicate Python: compare display province name (get_display_name) against
-          // the normalized provs list.  Python's province_clean is the Turkish display
-          // name (e.g. "Şırnak") while provs are lowercase ASCII ("sirnak"), so the
-          // comparison never matches — boosts are no-ops, matching the Python app.
+          // matada with Python: province_clean is the display split; provs are lowercased norm ids;
+          // the comparison never matches for Turkish names -> boosts are no-ops, matching the app.
           const provDisplay = _getDisplayName(province);
-          if (bo.provinces.includes(provDisplay)) pc = Math.min(1, pc * bo.multiplier);
+          if (bo.provinces.includes(provDisplay)) pc = Math.min(99.9, Math.max(0.001, pc * bo.multiplier));
         }
       }
       df.push({d, p, R, Pc:pc, Bc});
     }
   }
 
-  // projection per row
   for (const row of df){
     const Rc = clamp(row.R, 0.001, 99.999);
     const Pcc = clamp(row.Pc, 0.001, 99.999);
@@ -132,12 +216,10 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
     row.proj = row.Pc <= 0 ? 0 : Math.sqrt(Math.max(0.001,P_prop) * P_uni_safe);
   }
 
-  // normalize per district
   const totByD = {};
   for (const row of df) totByD[row.d] = (totByD[row.d]||0) + row.proj;
   for (const row of df) row.norm = totByD[row.d] > 0 ? (row.proj/totByD[row.d])*100 : 0;
 
-  // pivot votes per district
   const pivot = {};
   for (const d of districtNorms){
     const row = {};
@@ -146,7 +228,6 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
   }
   for (const row of df) pivot[row.d][row.p] = row.norm;
 
-  // sum joint lists into umbrella
   for (const umbrella of Object.keys(joint_lists)){
     for (const jp of joint_lists[umbrella]){
       for (const d of districtNorms){
@@ -158,15 +239,13 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
     }
   }
 
-  // eligibility
   for (const d of districtNorms){
     for (const p of partiesAll){
       if (!qualified.has(p)) pivot[d][p] = 0;
     }
   }
 
-  // allocate per district
-  const seats_won = {}; // d -> {p: count}
+  const seats_won = {};
   for (const d of districtNorms){
     const v = partiesAll.map(p=>pivot[d][p]);
     const s = seats[d] || 0;
@@ -185,7 +264,6 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
     for (let i=0;i<partiesAll.length;i++) seats_won[d][partiesAll[i]] = alloc[i];
   }
 
-  // leftover re-allocation nationally
   const leftoverDists = [];
   for (const d of districtNorms){
     const s = seats[d]||0;
@@ -214,7 +292,6 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
     }
   }
 
-  // build output rows
   const out=[];
   for (const d of districtNorms){
     for (const p of partiesAll){
@@ -231,25 +308,22 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
   return out;
 }
 
+// national base per party = sum(base_vote_pct * seat_count)/total_seats
 function compute_base_national(baseObj){
-  // national base per party = sum(base_vote_pct * seat_count)/total_seats
   const { base, seats } = baseObj;
-  const DISTRICTS = getDISTRICTS();
   const nat = {};
-  const seenDistricts = new Set();
   let total = 0;
-  for (const d of DISTRICTS){ if (!seenDistricts.has(d.norm)){ seenDistricts.add(d.norm); total += d.seats; } }
-  for (const r of getBASEDATA()){
-    const d = r.d, p = r.p;
+  for (const d in seats) total += seats[d] || 0;
+  const seen = {};
+  for (const key of Object.keys(base)){
+    const [d, p] = key.split('|');
     const s = seats[d]||0;
-    const bv = base[d+'|'+p]||0;
-    nat[p] = (nat[p]||0) + bv*s;
+    if (s>0) nat[p] = (nat[p]||0) + base[key]*s;
   }
   for (const p in nat) nat[p] = nat[p]/total;
   return nat;
 }
 
-// Joint-list default: Emek ve Özgürlük (DEM+TIP) — but keep only if user has them
 function defaultJointLists(){
   return {"DEM":["TIP"]};
 }
@@ -259,4 +333,4 @@ function defaultAlliances(){
 
 function round(v,p){ const m=Math.pow(10,p); return Math.round(v*m)/m; }
 
-if (typeof module !== 'undefined') module.exports = {run_simulation, _get_qualified_parties, _alloc_divisor, _alloc_quota, _weightedBase, compute_base_national, defaultJointLists, defaultAlliances};
+if (typeof module !== 'undefined') module.exports = {run_simulation, _get_qualified_parties, _alloc_divisor, _alloc_quota, _weightedBase, applyCustomPartiesJS, compute_base_national, _allParties, defaultJointLists, defaultAlliances};

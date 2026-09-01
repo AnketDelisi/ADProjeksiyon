@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="91.246986mm"
+   height="91.246986mm"
+   viewBox="0 0 91.246986 91.246986"
+   version="1.1"
+   id="svg1009"
+   sodipodi:docname="CHP.svg"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1011"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.4788159"
+     inkscape:cx="191.03121"
+     inkscape:cy="182.24039"
+     inkscape:window-width="1920"
+     inkscape:window-height="991"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1006">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath80534">
+      <g
+         id="g80538"
+         transform="matrix(2.8346528,0,0,-2.8346528,153.77903,694.22218)">
+        <path
+           d="M -54.249688,-52.093794 H 155.74993 V 244.90555 H -54.249688 Z"
+           id="path80536"
+           style="stroke-width:0.352777" />
+      </g>
+    </clipPath>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-42.403011,-106.2759)">
+    <g
+       id="g43776-4"
+       transform="matrix(0.46486403,0,0,0.46486403,48.971418,126.12594)"
+       style="fill:#ffffff">
+      <polygon
+         class="cls-1"
+         points="111.019,108.488 21.432,109.651 21.432,105.356 111.019,106.5 114.877,104.133 125.748,107.503 114.867,110.886 "
+         id="polygon43764-9"
+         style="fill:#ffffff;fill-rule:evenodd" />
+      <polygon
+         class="cls-1"
+         points="146.66,73.568 21.013,101.461 20.128,97.266 146.258,71.634 149.533,68.497 160.869,69.55 150.928,75.126 "
+         id="polygon43766-9"
+         style="fill:#ffffff;fill-rule:evenodd" />
+      <polygon
+         class="cls-1"
+         points="17.164,89.623 19.955,90.745 18.915,93.545 154.96,31.693 159.455,32.317 168.028,24.788 156.701,26.143 154.156,29.882 "
+         id="polygon43768-8"
+         style="fill:#ffffff;fill-rule:evenodd" />
+      <polygon
+         class="cls-1"
+         points="118.625,9.672 15.222,86.244 12.686,82.76 117.458,8.072 119.181,3.885 129.961,0.21 123.158,9.344 "
+         id="polygon43770-1"
+         style="fill:#ffffff;fill-rule:evenodd" />
+      <polygon
+         class="cls-1"
+         points="69.996,11.596 10.068,79.865 6.876,76.988 68.538,10.278 69.34,5.814 79.126,0 74.375,10.337 "
+         id="polygon43772-7"
+         style="fill:#ffffff;fill-rule:evenodd" />
+      <polygon
+         class="cls-1"
+         points="37.785,13.347 3.717,74.694 0,72.537 36.079,12.362 35.942,7.844 44.314,0.096 41.788,11.227 "
+         id="polygon43774-5"
+         style="fill:#ffffff;fill-rule:evenodd" />
+    </g>
+  </g>
+</svg>
