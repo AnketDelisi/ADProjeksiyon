@@ -1667,7 +1667,7 @@ function cbPickerHtml(c){
   return `<div class="cb-picker" ${open?'':'style="display:none"'} data-cand="${c.id}">
     <div class="cb-picker-head"><div>NOMİNİN PARTİSİNİ SEÇ</div><button class="cb-picker-close">✕</button></div>
     ${allParties().map(p=>`<div class="cb-picker-row" data-cand="${c.id}" data-party="${esc(p)}">
-      <div class="cb-picker-logo" style="background:${PARTY_COLORS[p]||'#888'}"><span>${esc(p)}</span></div>
+      <div class="cb-picker-logo" style="background:${PARTY_COLORS[p]||'#888'}"><img src="${logoURL(p)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span style="display:none">${esc(p)}</span></div>
       <div class="cb-picker-name">${esc(p)}</div>
       ${c.party===p?'<div class="cb-picker-check">✓</div>':''}
     </div>`).join('')}
@@ -1675,11 +1675,15 @@ function cbPickerHtml(c){
 }
 function cbBlockGridHtml(votes, candId, isR2){
   const bcols=cbBlockColors(), btot=cbBlockTotals();
-  return cbVoteKeys().map(g=>`
+  return cbVoteKeys().map(g=>{
+    const members=(CB_GROUPS[g]||[]).filter(p=>p!==g).join(' · ');
+    return `
     <div class="cb-block">
-      <div><div class="cb-block-lbl" style="color:${bcols[g]||'#111827'}">${esc(g)}</div><div class="cb-block-tot">${btot[g]||'%0.0'}</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%"><div class="cb-block-lbl" style="color:${bcols[g]||'#111827'}">${esc(g)}</div><div class="cb-block-tot">${btot[g]||'%0.0'}</div></div>
+      ${members?`<div class="cb-block-members">${esc(members)}</div>`:''}
       <input class="cb-num ${isR2?'cb-r2-num':''}" type="number" min="0" max="100" step="1" ${isR2?'':`data-cand="${candId}" `}data-group="${esc(g)}" value="${votes[g]}" style="--cb-focus:${bcols[g]||'#CBD5E1'}" />
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function cbCandidateCardHtml(c){
   const votes=cbCardVotes(c);
