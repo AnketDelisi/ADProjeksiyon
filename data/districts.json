@@ -1,0 +1,524 @@
+[
+{
+"name": "Adana",
+"province": "adana",
+"seats": 15,
+"norm": "adana"
+},
+{
+"name": "Adıyaman",
+"province": "adiyaman",
+"seats": 5,
+"norm": "adiyaman"
+},
+{
+"name": "Afyonkarahisar",
+"province": "afyonkarahisar",
+"seats": 6,
+"norm": "afyonkarahisar"
+},
+{
+"name": "Ağrı",
+"province": "agri",
+"seats": 4,
+"norm": "agri"
+},
+{
+"name": "Aksaray",
+"province": "aksaray",
+"seats": 4,
+"norm": "aksaray"
+},
+{
+"name": "Amasya",
+"province": "amasya",
+"seats": 3,
+"norm": "amasya"
+},
+{
+"name": "Ankara-1",
+"province": "ankara",
+"seats": 13,
+"norm": "ankara1"
+},
+{
+"name": "Ankara-2",
+"province": "ankara",
+"seats": 11,
+"norm": "ankara2"
+},
+{
+"name": "Ankara-3",
+"province": "ankara",
+"seats": 13,
+"norm": "ankara3"
+},
+{
+"name": "Antalya",
+"province": "antalya",
+"seats": 18,
+"norm": "antalya"
+},
+{
+"name": "Ardahan",
+"province": "ardahan",
+"seats": 2,
+"norm": "ardahan"
+},
+{
+"name": "Artvin",
+"province": "artvin",
+"seats": 2,
+"norm": "artvin"
+},
+{
+"name": "Aydın",
+"province": "aydin",
+"seats": 8,
+"norm": "aydin"
+},
+{
+"name": "Balıkesir",
+"province": "balikesir",
+"seats": 9,
+"norm": "balikesir"
+},
+{
+"name": "Bartın",
+"province": "bartin",
+"seats": 2,
+"norm": "bartin"
+},
+{
+"name": "Batman",
+"province": "batman",
+"seats": 5,
+"norm": "batman"
+},
+{
+"name": "Bayburt",
+"province": "bayburt",
+"seats": 1,
+"norm": "bayburt"
+},
+{
+"name": "Bilecik",
+"province": "bilecik",
+"seats": 2,
+"norm": "bilecik"
+},
+{
+"name": "Bingol",
+"province": "bingol",
+"seats": 3,
+"norm": "bingol"
+},
+{
+"name": "Bitlis",
+"province": "bitlis",
+"seats": 3,
+"norm": "bitlis"
+},
+{
+"name": "Bolu",
+"province": "bolu",
+"seats": 3,
+"norm": "bolu"
+},
+{
+"name": "Burdur",
+"province": "burdur",
+"seats": 3,
+"norm": "burdur"
+},
+{
+"name": "Bursa-1",
+"province": "bursa",
+"seats": 11,
+"norm": "bursa1"
+},
+{
+"name": "Bursa-2",
+"province": "bursa",
+"seats": 10,
+"norm": "bursa2"
+},
+{
+"name": "Çanakkale",
+"province": "canakkale",
+"seats": 4,
+"norm": "canakkale"
+},
+{
+"name": "Çankırı",
+"province": "cankiri",
+"seats": 2,
+"norm": "cankiri"
+},
+{
+"name": "Çorum",
+"province": "corum",
+"seats": 4,
+"norm": "corum"
+},
+{
+"name": "Denizli",
+"province": "denizli",
+"seats": 7,
+"norm": "denizli"
+},
+{
+"name": "Diyarbakır",
+"province": "diyarbakir",
+"seats": 12,
+"norm": "diyarbakir"
+},
+{
+"name": "Düzce",
+"province": "duzce",
+"seats": 3,
+"norm": "duzce"
+},
+{
+"name": "Edirne",
+"province": "edirne",
+"seats": 4,
+"norm": "edirne"
+},
+{
+"name": "Elazığ",
+"province": "elazig",
+"seats": 5,
+"norm": "elazig"
+},
+{
+"name": "Erzincan",
+"province": "erzincan",
+"seats": 2,
+"norm": "erzincan"
+},
+{
+"name": "Erzurum",
+"province": "erzurum",
+"seats": 5,
+"norm": "erzurum"
+},
+{
+"name": "Eskişehir",
+"province": "eskisehir",
+"seats": 7,
+"norm": "eskisehir"
+},
+{
+"name": "Gaziantep",
+"province": "gaziantep",
+"seats": 14,
+"norm": "gaziantep"
+},
+{
+"name": "Giresun",
+"province": "giresun",
+"seats": 4,
+"norm": "giresun"
+},
+{
+"name": "Gümüşhane",
+"province": "gumushane",
+"seats": 2,
+"norm": "gumushane"
+},
+{
+"name": "Hakkari",
+"province": "hakkari",
+"seats": 3,
+"norm": "hakkari"
+},
+{
+"name": "Hatay",
+"province": "hatay",
+"seats": 10,
+"norm": "hatay"
+},
+{
+"name": "Iğdır",
+"province": "igdir",
+"seats": 2,
+"norm": "igdir"
+},
+{
+"name": "Isparta",
+"province": "isparta",
+"seats": 4,
+"norm": "isparta"
+},
+{
+"name": "İstanbul-1",
+"province": "istanbul",
+"seats": 35,
+"norm": "istanbul1"
+},
+{
+"name": "İstanbul-2",
+"province": "istanbul",
+"seats": 25,
+"norm": "istanbul2"
+},
+{
+"name": "İstanbul-3",
+"province": "istanbul",
+"seats": 36,
+"norm": "istanbul3"
+},
+{
+"name": "İzmir-1",
+"province": "izmir",
+"seats": 14,
+"norm": "izmir1"
+},
+{
+"name": "İzmir-2",
+"province": "izmir",
+"seats": 14,
+"norm": "izmir2"
+},
+{
+"name": "Kahramanmaraş",
+"province": "kahramanmaras",
+"seats": 8,
+"norm": "kahramanmaras"
+},
+{
+"name": "Karabük",
+"province": "karabuk",
+"seats": 2,
+"norm": "karabuk"
+},
+{
+"name": "Karaman",
+"province": "karaman",
+"seats": 3,
+"norm": "karaman"
+},
+{
+"name": "Kars",
+"province": "kars",
+"seats": 3,
+"norm": "kars"
+},
+{
+"name": "Kastamonu",
+"province": "kastamonu",
+"seats": 3,
+"norm": "kastamonu"
+},
+{
+"name": "Kayseri",
+"province": "kayseri",
+"seats": 10,
+"norm": "kayseri"
+},
+{
+"name": "Kilis",
+"province": "kilis",
+"seats": 2,
+"norm": "kilis"
+},
+{
+"name": "Kırıkkale",
+"province": "kirikkale",
+"seats": 3,
+"norm": "kirikkale"
+},
+{
+"name": "Kırklareli",
+"province": "kirklareli",
+"seats": 3,
+"norm": "kirklareli"
+},
+{
+"name": "Kırşehir",
+"province": "kirsehir",
+"seats": 2,
+"norm": "kirsehir"
+},
+{
+"name": "Kocaeli",
+"province": "kocaeli",
+"seats": 14,
+"norm": "kocaeli"
+},
+{
+"name": "Konya",
+"province": "konya",
+"seats": 15,
+"norm": "konya"
+},
+{
+"name": "Kütahya",
+"province": "kutahya",
+"seats": 4,
+"norm": "kutahya"
+},
+{
+"name": "Malatya",
+"province": "malatya",
+"seats": 6,
+"norm": "malatya"
+},
+{
+"name": "Manisa",
+"province": "manisa",
+"seats": 10,
+"norm": "manisa"
+},
+{
+"name": "Mardin",
+"province": "mardin",
+"seats": 6,
+"norm": "mardin"
+},
+{
+"name": "Mersin",
+"province": "mersin",
+"seats": 13,
+"norm": "mersin"
+},
+{
+"name": "Muğla",
+"province": "mugla",
+"seats": 8,
+"norm": "mugla"
+},
+{
+"name": "Muş",
+"province": "mus",
+"seats": 3,
+"norm": "mus"
+},
+{
+"name": "Nevşehir",
+"province": "nevsehir",
+"seats": 3,
+"norm": "nevsehir"
+},
+{
+"name": "Niğde",
+"province": "nigde",
+"seats": 3,
+"norm": "nigde"
+},
+{
+"name": "Ordu",
+"province": "ordu",
+"seats": 6,
+"norm": "ordu"
+},
+{
+"name": "Osmaniye",
+"province": "osmaniye",
+"seats": 4,
+"norm": "osmaniye"
+},
+{
+"name": "Rize",
+"province": "rize",
+"seats": 3,
+"norm": "rize"
+},
+{
+"name": "Sakarya",
+"province": "sakarya",
+"seats": 8,
+"norm": "sakarya"
+},
+{
+"name": "Samsun",
+"province": "samsun",
+"seats": 9,
+"norm": "samsun"
+},
+{
+"name": "Şanlıurfa",
+"province": "sanliurfa",
+"seats": 15,
+"norm": "sanliurfa"
+},
+{
+"name": "Siirt",
+"province": "siirt",
+"seats": 3,
+"norm": "siirt"
+},
+{
+"name": "Sinop",
+"province": "sinop",
+"seats": 2,
+"norm": "sinop"
+},
+{
+"name": "Şırnak",
+"province": "sirnak",
+"seats": 4,
+"norm": "sirnak"
+},
+{
+"name": "Sivas",
+"province": "sivas",
+"seats": 5,
+"norm": "sivas"
+},
+{
+"name": "Tekirdağ",
+"province": "tekirdag",
+"seats": 8,
+"norm": "tekirdag"
+},
+{
+"name": "Tokat",
+"province": "tokat",
+"seats": 5,
+"norm": "tokat"
+},
+{
+"name": "Trabzon",
+"province": "trabzon",
+"seats": 6,
+"norm": "trabzon"
+},
+{
+"name": "Tunceli",
+"province": "tunceli",
+"seats": 2,
+"norm": "tunceli"
+},
+{
+"name": "Uşak",
+"province": "usak",
+"seats": 3,
+"norm": "usak"
+},
+{
+"name": "Van",
+"province": "van",
+"seats": 8,
+"norm": "van"
+},
+{
+"name": "Yalova",
+"province": "yalova",
+"seats": 3,
+"norm": "yalova"
+},
+{
+"name": "Yozgat",
+"province": "yozgat",
+"seats": 3,
+"norm": "yozgat"
+},
+{
+"name": "Zonguldak",
+"province": "zonguldak",
+"seats": 5,
+"norm": "zonguldak"
+}
+]
