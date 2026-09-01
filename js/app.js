@@ -2744,10 +2744,12 @@ function buildBeeSwarmSvg(scatterX, scatterColors){
   svg+=`<line x1="${x301}" y1="${padT}" x2="${x301}" y2="${h-padB}" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="6,6"/>`;
   svg+=`<text x="${x301}" y="${padT-16}" text-anchor="middle" fill="#1A1A1A" font-size="13" font-weight="900">301 ÇOĞUNLUK SINIRI</text>`;
   const legend=[['YENİ','#A7050E'],['MUHALEFET','#E30A17'],['AKP','#FDA000'],['CUMHUR','#FF8C00']];
-  let lx=padL;
+  const itemW=(lab)=>12+6+Math.max(24,lab.length*8)+22;
+  const totalW=legend.reduce((a,[lab])=>a+itemW(lab),0);
+  let lx=(w-totalW)/2, ly=h-24;
   for (const [lab,col] of legend){
-    svg+=`<rect x="${lx}" y="14" width="12" height="12" fill="${col}" stroke="#111827" stroke-width="1.5"/><text x="${lx+16}" y="24" fill="#1A1A1A" font-size="10" font-weight="800">${lab}</text>`;
-    lx+=16+Math.max(34, lab.length*8)+16;
+    svg+=`<rect x="${lx}" y="${ly}" width="12" height="12" fill="${col}" stroke="#111827" stroke-width="1.5"/><text x="${lx+16}" y="${ly+10}" fill="#1A1A1A" font-size="10" font-weight="800">${lab}</text>`;
+    lx+=itemW(lab);
   }
   for (let gv=0; gv<=600; gv+=50){
     if (gv<xMin||gv>xMax) continue;
@@ -2854,7 +2856,7 @@ function buildConfTableHtml(confRows){
 function firmChipHtml(f){
   return `<div class="member-chip"><span class="t">${esc(f)}</span><button type="button" title="Kaldır">✕</button></div>`;
 }
-// ---- province race ratings (5-tier) ----
+// province race ratings (5-tier)
 const TIER_COLORS = {'KESİN':'#1A8917','GÜÇLÜ':'#4CAF50','EĞİLİMLİ':'#F5A623','HAFİF EĞİLİMLİ':'#F97316','BAŞA BAŞ':'#E00000'};
 function provTier(margin){
   if (margin>15) return 'KESİN';
@@ -2862,6 +2864,19 @@ function provTier(margin){
   if (margin>5) return 'EĞİLİMLİ';
   if (margin>2.5) return 'HAFİF EĞİLİMLİ';
   return 'BAŞA BAŞ';
+}
+function mcDistDisplayName(nd){
+  const m=String(nd).match(/(\d+)$/);
+  if (m) return `${get_display_label(String(nd).replace(/\d+$/,''))} ${m[1]}. Bölge`;
+  return get_display_label(nd);
+}
+function latestPollRaw(){
+  let best=null,bestMs=-Infinity;
+  for (const r of POLLS_RAW){
+    const d=parseTurkishDate(r&&r.Tarih);
+    if (d instanceof Date && !isNaN(d.getTime()) && d.getTime()>bestMs){ bestMs=d.getTime(); best=r.Tarih; }
+  }
+  return best?String(best):null;
 }
 function runMc(){
   if (state.mc.running) return;
@@ -2905,22 +2920,12 @@ function runMc(){
       const provSet={};
       for (const key of Object.keys(baseObj.base)){ const prov=String(key.split('|')[0]).replace(/[0-9]+$/,''); provSet[prov]=1; }
       const MC_PROVS=Object.keys(provSet);
-      // per-province district counts (for mean pct aggregation)
-      const provDist={};
-      for (const key of Object.keys(baseObj.base)){
-        const d=String(key.split('|')[0]);
-        const pr=d.replace(/[0-9]+$/,'');
-        if (!provDist[pr]) provDist[pr]={};
-        provDist[pr][d]=1;
-      }
-      const provDistCount={};
-      for (const pr of Object.keys(provDist)) provDistCount[pr]=Object.keys(provDist[pr]).length;
       const rng=mulberry32(Math.floor(Math.random()*0x7fffffff)|0);
       let yeniWins=0,muhWins=0,akpWins=0,cumhurWins=0,noneWins=0;
       const mcSeatsHistory={}, firstPartyWins={};
       for (const p of allP){ mcSeatsHistory[p]=[]; firstPartyWins[p]=0; }
       const districtWinHistory={};
-      const provWinCount={}, provMarginSum={};
+      const distMarginSum={};
       const scatterX=[],scatterColors=[];
 
       for (let i=0;i<iterCount;i++){
@@ -2950,22 +2955,15 @@ function runMc(){
         const mcSeats={};
         for (const r of dfMc) mcSeats[r.p]=(mcSeats[r.p]||0)+r.seats_won;
         for (const p of allP) mcSeatsHistory[p].push(mcSeats[p]||0);
-        // per-province race tracking: mean pct per party -> top-2 margin
-        const provAgg={};
-        for (const r of dfMc){
-          const pr=String(r.province).replace(/[0-9]+$/,'');
-          const ag=provAgg[pr]||(provAgg[pr]={});
-          ag[r.p]=(ag[r.p]||0)+r.new_vote_pct;
-        }
-        for (const pr of Object.keys(provAgg)){
-          const cnt=provDistCount[pr]||1;
-          const pcts=Object.entries(provAgg[pr]).map(([p,s])=>[p,s/cnt]).sort((a,b)=>b[1]-a[1]);
+        // per-district margin tracking (ratings are region/district based)
+        const distGrouped0={};
+        for (const r of dfMc){ (distGrouped0[r.d]=distGrouped0[r.d]||[]).push(r); }
+        for (const d of Object.keys(distGrouped0)){
+          const nd=normalize_id(d);
+          const pcts=distGrouped0[d].map(r=>[r.p,r.new_vote_pct]).sort((a,b)=>b[1]-a[1]);
           if (!pcts.length) continue;
-          const winner=pcts[0][0];
-          if (!provWinCount[pr]) provWinCount[pr]={};
-          provWinCount[pr][winner]=(provWinCount[pr][winner]||0)+1;
           const margin=pcts.length>1?(pcts[0][1]-pcts[1][1]):pcts[0][1];
-          provMarginSum[pr]=(provMarginSum[pr]||0)+margin;
+          distMarginSum[nd]=(distMarginSum[nd]||0)+margin;
         }
         const seatKeys=Object.keys(mcSeats);
         if (seatKeys.length){
@@ -3026,8 +3024,7 @@ function runMc(){
         for (const p of Object.keys(partyWins)){ if (partyWins[p]>tcnt){ tcnt=partyWins[p]; topParty=p; } }
         mcDistWinners[normDist]=topParty;
         mcolDict[normDist]=get_probability_color(topParty,partyWins[topParty],iterCount);
-        let displayName=String(normDist).charAt(0).toUpperCase()+String(normDist).slice(1).toLowerCase();
-        if (displayName && /\d$/.test(displayName)) displayName=displayName.slice(0,-1)+" "+displayName.slice(-1)+". Bölge";
+        const displayName=mcDistDisplayName(normDist);
         const partsHtml=[`<div class="tip-header">${displayName}<span class="tip-total">KAZANMA OLASILIĞI</span></div>`];
         const entries=Object.entries(partyWins).sort((a,b)=>b[1]-a[1]);
         for (const [pName,wins] of entries){
@@ -3036,24 +3033,24 @@ function runMc(){
         }
         mcTooltipDict[normDist]=partsHtml.join("");
       }
-      // province race ratings + tier chip on every district tooltip of that province
+      // district race ratings + tier chip on each district tooltip
       const provRatings=[];
-      for (const pr of Object.keys(provWinCount)){
-        const counts=provWinCount[pr];
+      for (const nd of Object.keys(districtWinHistory)){
+        const counts=districtWinHistory[nd];
         let topParty=null,tcnt=-1;
         for (const p of Object.keys(counts)){ if (counts[p]>tcnt){ tcnt=counts[p]; topParty=p; } }
         const prob=Math.floor((tcnt/iterCount)*100);
-        const margin=(provMarginSum[pr]||0)/iterCount;
-        provRatings.push({prov:pr, party:topParty, prob, margin, tier:provTier(margin)});
+        const margin=(distMarginSum[nd]||0)/iterCount;
+        provRatings.push({prov:nd, party:topParty, prob, margin, tier:provTier(margin)});
       }
       provRatings.sort((a,b)=>a.margin-b.margin);
       state.mc.provRatings=provRatings;
       const provTierMap={}; for (const rt of provRatings) provTierMap[rt.prov]=rt;
       for (const normDist of Object.keys(mcTooltipDict)){
-        const rt=provTierMap[String(normDist).replace(/[0-9]+$/,'')];
+        const rt=provTierMap[normDist];
         if (!rt) continue;
-        const pc=PARTY_COLORS[rt.party]||'#888';
-        mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:4px 0;border:2px solid #111827;background:${pc};color:#FFFFFF;font-weight:900;font-size:11px;letter-spacing:1px;text-align:center;">${rt.tier}</div>`;
+        const tc=TIER_COLORS[rt.tier]||'#71716E';
+        mcTooltipDict[normDist]+=`<div class="tip-tier" style="display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:4px 0;border:2px solid #111827;background:${tc};color:#FFFFFF;font-weight:900;font-size:11px;letter-spacing:1px;text-align:center;">${rt.tier}</div>`;
       }
       state.mc.mapHtml=renderColoredSvg(SVG_TURKIYE,{provWinners:{},distWinners:mcDistWinners,colorsDict:PARTY_COLORS,tooltipDict:mcTooltipDict,seatsData:{},showBadges:false,customColors:mcolDict,uid:'mc',svgFile:'turkiye.svg',hiddenInputId:'hidden_prov_input_mc',detailSectionId:'mc_prov_detail_section'});
     } finally {
@@ -3094,6 +3091,12 @@ function renderOlasilik(){
   const firms=state.selectedFirms||[];
   const avail=FIRM_NAMES_JS.filter(f=>firms.indexOf(f)<0);
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
+  // 0) nowcast framing banner
+  const latestT=latestPollRaw();
+  html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;margin-bottom:12px;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">SON DURUM (NOWCAST)</div></div>
+    <div style="font-size:12px;color:var(--c-text-muted);width:100%;line-height:1.6;">Model, bugün seçim olsa ortaya çıkacak tabloyu gösterir; geleceğe projeksiyon yapmaz. Kararsızlar hiçbir partiye dağıtılmaz; farklar anketlerde yayınlandığı haliyle korunur.${latestT?` <span style="color:#1A1A1A;font-weight:900;">Son güncelleme: ${esc(latestT)}.</span>`:''}</div>
+  </div>`;
   // 1) firm selection + hata payı
   html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;margin-bottom:12px;padding:14px 16px;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">MODELE DAHİL EDİLECEK FİRMALAR</div></div>
@@ -3137,17 +3140,17 @@ function renderOlasilik(){
       const tierChip=(t)=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${TIER_COLORS[t]||'#71716E'};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${t}</span>`;
       html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;flex-wrap:wrap;gap:8px;">
-          <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">İL BAZLI YARIŞ KARNESİ</div></div>
+          <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">SEÇİM BÖLGESİ YARIŞ KARNESİ</div></div>
           <select id="mc-tier-filter" style="height:34px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 8px;background:#fff;color:#1A1A1A;">
             ${['TÜMÜ','KESİN','GÜÇLÜ','EĞİLİMLİ','HAFİF EĞİLİMLİ','BAŞA BAŞ'].map(t=>`<option value="${t}" ${t===tf?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
-        <div style="font-size:12px;color:var(--c-text-muted);margin:8px 0 10px 0;">En dar farktan başlayarak 81 ilin durumu (500 simülasyon ortalaması). Kademe eşikleri: KESİN &gt;15 · GÜÇLÜ 10-15 · EĞİLİMLİ 5-10 · HAFİF EĞİLİMLİ 2.5-5 · BAŞA BAŞ &lt;2.5 puan.</div>
-        <div style="overflow-x:auto;"><table class="conf-table" style="min-width:560px;"><thead><tr><th>İl</th><th>Önde Giden Parti</th><th style="text-align:right;">1. Parti Olasılığı</th><th style="text-align:right;">Ort. Fark</th><th style="text-align:right;">Kademe</th></tr></thead><tbody>
+        <div style="font-size:12px;color:var(--c-text-muted);margin:8px 0 10px 0;">En dar farktan başlayarak ${state.mc.provRatings.length} seçim bölgesinin durumu (500 simülasyon ortalaması). Kademe eşikleri: KESİN &gt;15 · GÜÇLÜ 10-15 · EĞİLİMLİ 5-10 · HAFİF EĞİLİMLİ 2.5-5 · BAŞA BAŞ &lt;2.5 puan.</div>
+        <div style="overflow-x:auto;"><table class="conf-table" style="min-width:560px;"><thead><tr><th>Seçim Bölgesi</th><th>Önde Giden Parti</th><th style="text-align:right;">1. Parti Olasılığı</th><th style="text-align:right;">Ort. Fark</th><th style="text-align:right;">Kademe</th></tr></thead><tbody>
           ${filtered.map(r=>{
             const pc=PARTY_COLORS[r.party]||'#888';
             return `<tr>
-              <td style="font-weight:900;color:#1A1A1A;">${esc(get_display_label(r.prov))}</td>
+              <td style="font-weight:900;color:#1A1A1A;">${esc(mcDistDisplayName(r.prov))}</td>
               <td style="font-weight:900;color:${pc};white-space:nowrap;">${esc(r.party)}</td>
               <td style="text-align:right;font-variant-numeric:tabular-nums;">%${r.prob}</td>
               <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:900;color:#1A1A1A;">${r.margin.toFixed(1)}</td>
