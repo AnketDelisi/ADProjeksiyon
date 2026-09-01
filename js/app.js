@@ -961,7 +961,7 @@ function renderSidebar(){
       <select id="scenario-select">${Object.keys(PREDEFINED_SCENARIOS).map(s=>`<option ${s===state.scenario?'selected':''}>${esc(s)}</option>`).join('')}</select>
     </div></div>
     <div class="btn-row">
-      <button class="btn-side" id="btn-export">Dışa Aktar</button>
+      <button class="btn-side" id="btn-export" style="width:49%;margin:0">Dışa Aktar</button>
       <label class="btn-side" style="width:49%;margin:0;display:flex;align-items:center;justify-content:center;cursor:pointer">İçe Aktar
         <input type="file" id="file-import" accept=".json,application/json" style="display:none">
       </label>
@@ -1882,10 +1882,6 @@ function cbR1WinnerLine(cb){
   if (cb.r1WinnerPct>50) return `<div style="color:#1A8917;font-weight:900;font-size:14px;margin:4px 0">Seçim 1. Turda Bitti! ${esc(cb.r1Top1)} ${esc(cb.r1WinnerText)}</div>`;
   return `<div style="color:#B0540A;font-weight:900;font-size:14px;margin:4px 0">Hiçbir aday %50+1'e ulaşamadı. 2. tura kalındı.</div>`;
 }
-function cbSummaryChipsHtml(summary){
-  if (!summary || !summary.length) return '';
-  return `<div class="prov-summary">${summary.map(s=>`<div class="prov-card cb-chip" style="border-left:3px solid ${s.color}"><div class="p">${esc(s.name)}</div><div class="v">${esc(s.pct)}</div></div>`).join('')}</div>`;
-}
 function cbDetailSectionHtml(rn){
   const det=rn===1?cbState().r1:cbState().r2;
   if (!det.prov) return `<div class="sb-card shadow section-card"><div style="font-weight:900;font-size:12px;color:var(--c-text-muted)">Dinamik il detayı: Haritada bir ile tıklayın.</div></div>`;
@@ -1896,7 +1892,6 @@ function cbDetailSectionHtml(rn){
     <div class="sb-kicker"><div class="bar"></div><div class="t">${esc(det.name)} İLİ DETAYLI ANALİZİ</div></div>
     <div style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1.2px;margin:0 0 10px 12px">CUMHURBAŞKANLIĞI SEÇİMİ ${rn}. TUR</div>
     <div style="padding:0 14px">
-      ${cbSummaryChipsHtml(det.summary)}
       <div class="city-map-box" id="cb-city-map-${rn}"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
       ${det.ilceSelected?`
         <div class="detail-translate">
