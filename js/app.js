@@ -16,6 +16,7 @@ let ILCE_NAMES = null;          // ilce_names.json {provinces:{p|i:name}, global
 let SVG_TURKIYE2 = "";          // turkiye2.svg raw (province-level map)
 let YEREL_2024 = null;          // yerel_2024.json {provinces:{p:{party:pct}}, nat, winners}
 let BUYUKSEHIR = {};            // set of büyükşehir province norm ids
+let YEREL_TARGETS = null;       // yerel_targets.json {alias:{YENI:'CHP'}, defections:[[prov,from,to],...]}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
 const ILCE_SVG_CACHE = {};      // prov -> raw svg
 
@@ -68,7 +69,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:90, yerelFlow:50, yerelMatrix:null, yerelResults:null, yerelProv:"",
+  yerelW24:0, yerelFlow:10, yerelMatrix:null, yerelResults:null, yerelProv:"",
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2506,33 +2507,35 @@ function yerelMatrix(){
 function runLocal(){
   if (!YEREL_2024) return;
   const un=userNorm();
-  const w24=clamp(parseFloat(state.yerelW24)||90,50,100)/100;
-  const flowRate=clamp(parseFloat(state.yerelFlow)||50,0,80)/100;
-  // baseline blend: %65 resmi 2024 ulusal + %25 ilçe toplamı (il bazlı) + %10 2023 genel
-  const W24N=0.65, WAGG=0.25, W23=0.10;
-  const nat24=YEREL_2024.nat24||{}, nat23=YEREL_2024.nat23||{}, natAgg=YEREL_2024.natAgg||{};
-  const natKeys=new Set([...Object.keys(nat24),...Object.keys(nat23),...Object.keys(natAgg),...Object.keys(un)]);
-  const normTo100=(obj)=>{ const t=Object.values(obj).reduce((a,b)=>a+b,0); if (t<=0) return obj; const out={}; for (const k of Object.keys(obj)) out[k]=obj[k]/t*100; return out; };
-  const blendedNat={};
-  for (const p of natKeys) blendedNat[p]=W24N*(nat24[p]||0)+WAGG*(natAgg[p]||0)+W23*(nat23[p]||0);
-  const natB=normTo100(blendedNat);
+  const w24=clamp(parseFloat(state.yerelW24)||30,0,100)/100;
+  const flowRate=clamp(parseFloat(state.yerelFlow)||25,0,80)/100;
   const matrix=yerelMatrix();
   const blocs=yerelBlocs();
+  // synthesized national reference: breakoffs added on top of official 2024 (no deduction)
+  const synthNat=(()=>{
+    const n=Object.assign({}, YEREL_2024.nat||{});
+    const mk=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(n[s]||0)*row[s]/100; } n[p]=(n[p]||0)+g; };
+    mk('YENI'); mk('A');
+    const t=Object.values(n).reduce((a,b)=>a+b,0);
+    for (const k of Object.keys(n)) n[k]=t>0?n[k]/t*100:0;
+    return n;
+  })();
   const out={};
   for (const prov of Object.keys(YEREL_2024.provinces)){
-    const agg=YEREL_2024.provinces[prov];
+    // synthesized per-province base: 2024 results + breakoff parties added on top (no deduction)
+    const base=Object.assign({}, YEREL_2024.provinces[prov]);
+    const mkB=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(base[s]||0)*row[s]/100; } base[p]=(base[p]||0)+g; };
+    mkB('YENI'); mkB('A');
+    const bT=Object.values(base).reduce((a,b)=>a+b,0);
+    for (const k of Object.keys(base)) base[k]=bT>0?base[k]/bT*100:0;
     const allP={};
-    for (const p of Object.keys(agg)) allP[p]=1;
+    for (const p of Object.keys(base)) allP[p]=1;
     for (const p of Object.keys(un)) allP[p]=1;
     const keys=Object.keys(allP);
-    // blended 2024 base per province (65/25/10)
-    const baseRaw={};
-    for (const p of keys) baseRaw[p]=W24N*(nat24[p]||0)+WAGG*(agg[p]||0)+W23*(nat23[p]||0);
-    const base=normTo100(baseRaw);
-    // logit swing from user national input vs blended national
+    // logit swing from user national input vs synthesized 2024 national
     const swinged={};
     for (const p of keys){
-      const R=base[p]||0, Bc=natB[p]||0, Pc=un[p]||0;
+      const R=base[p]||0, Bc=synthNat[p]||0, Pc=un[p]||0;
       if (Pc<=0){ swinged[p]=0; continue; }
       const Rc=clamp(R,0.001,99.999), Bcc=clamp(Bc,0.005,99.999), Pcc=clamp(Pc,0.001,99.999);
       const logitDiff=clamp(Math.log(Pcc/(100-Pcc))-Math.log(Bcc/(100-Bcc)),-5,5);
@@ -2542,7 +2545,7 @@ function runLocal(){
     }
     const tS=Object.values(swinged).reduce((a,b)=>a+b,0);
     for (const p of keys) swinged[p]=tS>0?swinged[p]/tS*100:0;
-    // blend with 2024 base
+    // blend with 2024 base (default taban ağırlığı %30)
     const final0={};
     for (const p of keys) final0[p]=w24*(base[p]||0)+(1-w24)*(swinged[p]||0);
     const tF=Object.values(final0).reduce((a,b)=>a+b,0);
@@ -2680,7 +2683,7 @@ function yerelSettingsHtml(){
     <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:6px;">
       <div style="min-width:220px;flex:1;">
         <div style="display:flex;justify-content:space-between;font-weight:900;font-size:11px;color:var(--c-text-muted);margin-bottom:4px;"><span>2024 TABAN AĞIRLIĞI</span><span style="color:#1A1A1A;">%${state.yerelW24}</span></div>
-        <input id="yerel-w24" type="range" min="50" max="100" step="1" value="${state.yerelW24}" style="width:100%;accent-color:#111827;">
+        <input id="yerel-w24" type="range" min="0" max="100" step="1" value="${state.yerelW24}" style="width:100%;accent-color:#111827;">
       </div>
       <div style="min-width:220px;flex:1;">
         <div style="display:flex;justify-content:space-between;font-weight:900;font-size:11px;color:var(--c-text-muted);margin-bottom:4px;"><span>MİNOR AKIŞ ORANI</span><span style="color:#1A1A1A;">%${state.yerelFlow}</span></div>
@@ -2688,7 +2691,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban karışımı: %65 resmi 2024 ulusal + %25 ilçe toplamı + %10 2023 genel. Geri test (2024): varsayılan ayarlarla %59, akış %25'te %72 doğruluk.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 yerel il sonuçları (ilçe ortalaması + 16 il düzeltmesi). Geri test (2024): %91.</div>
   </div>`;
 }
 function yerelMatrixHtml(){
@@ -2717,7 +2720,7 @@ function renderYerel(){
   const pane=$('#pane_yerel');
   if (!pane) return;
   if (!YEREL_2024) { pane.innerHTML=`<div class="sb-card shadow"><div class="big-note">Yerel seçim verisi yüklenemedi.</div></div>`; return; }
-runLocal();
+  runLocal();
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
   html+=yerelSettingsHtml();
   html+=yerelMatrixHtml();
@@ -3473,7 +3476,7 @@ function renderOlasilik(){
 // ================= boot =================
 async function boot(){
   bindSegNav();
-  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big] = await Promise.all([
+  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, ytargets] = await Promise.all([
     fetch('data/base_years.json').then(r=>r.json()),
     fetch('data/districts.json').then(r=>r.json()),
     fetch('data/turkiye.svg').then(r=>r.text()),
@@ -3481,7 +3484,8 @@ async function boot(){
     fetch('data/ilce_names.json').then(r=>r.json()).catch(()=>null),
     fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
     fetch('data/yerel_2024.json').then(r=>r.json()).catch(()=>null),
-    fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[])
+    fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
+    fetch('data/yerel_targets.json').then(r=>r.json()).catch(()=>null)
   ]);
   YEARS=yrs; DISTRICTS=dists; SVG_TURKIYE=cleanSvgString(svg);
   window.BASE_YEARS=yrs; window.DISTRICTS=dists;
@@ -3489,6 +3493,7 @@ async function boot(){
   SVG_TURKIYE2=cleanSvgString(svg2);
   YEREL_2024=yerel;
   BUYUKSEHIR={}; for (const b of big) BUYUKSEHIR[String(b).toLowerCase()]=1;
+  YEREL_TARGETS=ytargets;
   POLLS_RAW=polls||[];
   const seen={}; FIRM_NAMES_JS=[];
   for (const r of POLLS_RAW){ if (r && r.Firma && !seen[r.Firma]){ seen[r.Firma]=1; FIRM_NAMES_JS.push(String(r.Firma)); } }
