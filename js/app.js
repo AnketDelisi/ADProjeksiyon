@@ -17,6 +17,7 @@ let SVG_TURKIYE2 = "";          // turkiye2.svg raw (province-level map)
 let YEREL_2024 = null;          // yerel_2024.json {provinces:{p:{party:pct}}, nat, winners}
 let BUYUKSEHIR = {};            // set of büyükşehir province norm ids
 let YEREL_TARGETS = null;       // yerel_targets.json {alias:{YENI:'CHP'}, defections:[[prov,from,to],...]}
+let BELEDIYE_MECLIS = null;     // belediye_meclis.json {provNorm: councilSeats}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
 const ILCE_SVG_CACHE = {};      // prov -> raw svg
 
@@ -69,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:0, yerelFlow:10, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"",
+  yerelW24:0, yerelFlow:10, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2564,23 +2565,45 @@ function runLocal(){
     for (const p of keys) final0[p]=w24*(base[p]||0)+(1-w24)*(swinged[p]||0);
     const tF=Object.values(final0).reduce((a,b)=>a+b,0);
     for (const p of keys) final0[p]=tF>0?final0[p]/tF*100:0;
+    // per-province popularity multiplier (user picks party + boost amount)
+    const pop=(state.yerelPop&&state.yerelPop[prov])||{};
+    let anyPop=false;
+    for (const p of Object.keys(pop)){
+      const m=parseFloat(pop[p]);
+      if (m>0 && m!==1 && final0[p]!==undefined){ final0[p]*=m; anyPop=true; }
+    }
+    if (anyPop){
+      const tP=Object.values(final0).reduce((a,b)=>a+b,0);
+      for (const p of keys) final0[p]=tP>0?final0[p]/tP*100:0;
+    }
     // majors: top 3 + any party >10pp (max 4 — 4'lü yarışlar nadirleşir)
     const ranked=Object.entries(final0).sort((a,b)=>b[1]-a[1]);
     const majors=[];
     for (let i=0;i<Math.min(3,ranked.length);i++) majors.push(ranked[i][0]);
     for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4) majors.push(p); }
-    // alliance dropout: minor alliance members fully support their qualifying partners
+    // alliance dropout: minor alliance members fully support their qualifying partners.
+    // Per-province overrides: state.yerelOverrides[prov][party] = 'drop' | 'stay' | auto
     const allyMap={};
     const allysObj=yerelAlliancesObj();
     for (const aly of Object.keys(allysObj)){
       for (const p of allysObj[aly]){ allyMap[p]=aly; }
     }
-    const flows={};
+    const over=(state.yerelOverrides&&state.yerelOverrides[prov])||{};
+    const running=new Set(majors);
+    for (const p of keys){ if (over[p]==='stay') running.add(p); }
+    const dropSet=new Set();
     for (const p of keys){
-      if (majors.indexOf(p)>=0) continue;
+      if (over[p]==='drop'){ dropSet.add(p); continue; }
+      if (over[p]==='stay' || majors.indexOf(p)>=0) continue;
       const aly=allyMap[p];
       if (!aly) continue;
-      const partners=allysObj[aly].filter(x=>x!==p && majors.indexOf(x)>=0);
+      if (allysObj[aly].some(x=>x!==p && running.has(x))) dropSet.add(p);
+    }
+    const flows={};
+    for (const p of dropSet){
+      const aly=allyMap[p];
+      if (!aly) continue;
+      const partners=allysObj[aly].filter(x=>x!==p && running.has(x) && !dropSet.has(x));
       if (!partners.length) continue;
       const v=final0[p]||0;
       if (v<=0) continue;
@@ -2630,11 +2653,20 @@ function runLocal(){
         for (const p of Object.keys(final)) final[p]=tB>0?final[p]/tB*100:0;
       }
     }
+    // municipal council: her partiden 10 puan düş, D'Hondt
+    const council={};
+    const councilTotal=BELEDIYE_MECLIS&&BELEDIYE_MECLIS[prov]?BELEDIYE_MECLIS[prov]:0;
+    if (councilTotal>0){
+      const cP=Object.keys(final);
+      const votes=cP.map(p=>Math.max(0,(final[p]||0)-10));
+      const alloc=_alloc_divisor(votes, councilTotal, "D'Hondt (Varsayılan)");
+      for (let i=0;i<cP.length;i++) if (alloc[i]>0) council[cP[i]]=alloc[i];
+    }
     const sortedF=Object.entries(final).sort((a,b)=>b[1]-a[1]);
     out[prov]={prov, winner:sortedF[0][0], winnerPct:sortedF[0][1],
       margin:sortedF.length>1?sortedF[0][1]-sortedF[1][1]:sortedF[0][1],
       second:sortedF.length>1?sortedF[1][0]:'',
-      shares:final, base, majors, flows, big:BUYUKSEHIR[prov]?1:0,
+      shares:final, base, majors, flows, council, councilTotal, big:BUYUKSEHIR[prov]?1:0,
       incumbent:YEREL_2024.winners[prov]||''};
   }
   const counts={}, bigCounts={};
@@ -2725,7 +2757,81 @@ function yerelDetailHtml(){
       }).join('')}
     </div>
   </div>`;
+  html+=yerelAllyOverridesHtml(r.prov);
+  html+=yerelPopHtml(r.prov, rows.map(x=>x[0]));
+  html+=yerelCouncilHtml(r);
   return html;
+}
+function yerelAllyOverridesHtml(prov){
+  const allysObj=yerelAlliancesObj();
+  const over=(state.yerelOverrides&&state.yerelOverrides[prov])||{};
+  const rows=[];
+  for (const aly of Object.keys(allysObj)){
+    const parts=allysObj[aly];
+    if (parts.length<2) continue;
+    for (const p of parts){
+      const cur=over[p]||'auto';
+      rows.push(`<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
+        <div style="width:190px;font-weight:900;font-size:11px;color:${PARTY_COLORS[p]||'#111827'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(aly)} / ${esc(p)}</div>
+        <select class="yerel-ally-ovr" data-prov="${esc(prov)}" data-party="${esc(p)}" style="height:30px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;padding:0 6px;background:#fff;">
+          <option value="auto" ${cur==='auto'?'selected':''}>Otomatik</option>
+          <option value="drop" ${cur==='drop'?'selected':''}>Çekil (destek)</option>
+          <option value="stay" ${cur==='stay'?'selected':''}>Yarış</option>
+        </select>
+      </div>`);
+    }
+  }
+  if (!rows.length) return '';
+  return `<div class="sb-card shadow" style="margin-top:12px">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">ADAY ÇEKİLME AYARLARI (İL)</div></div>
+    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">İttifak üyesinin bu ilde çekilip çekilmeyeceğini seçin. 'Otomatik': ana aday olamazsa ittifak ortağına tam destek verir.</div>
+    ${rows.join('')}
+  </div>`;
+}
+function yerelPopHtml(prov, parties){
+  const pop=(state.yerelPop&&state.yerelPop[prov])||{};
+  const curEntry=Object.entries(pop).find(([p,m])=>m>0)||[];
+  const curParty=curEntry[0]||'';
+  const curMult=curEntry[1]||1;
+  return `<div class="sb-card shadow" style="margin-top:12px">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">POPÜLERLİK ÇARPANI (İL)</div></div>
+    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Adayın yerel popülaritesi: seçtiğiniz partinin bu ildeki oyu çarpanla artırılır.</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <select id="yerel-pop-party" data-prov="${esc(prov)}" style="height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 6px;background:#fff;">
+        <option value="">— Parti seç —</option>
+        ${parties.map(p=>`<option value="${esc(p)}" ${p===curParty?'selected':''}>${esc(p)}</option>`).join('')}
+      </select>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-weight:900;font-size:11px;color:var(--c-text-muted);">ÇARPAN</span>
+        <input id="yerel-pop-mult" type="number" min="0.5" max="3" step="0.1" value="${curMult}" style="width:70px;height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;text-align:center;background:#fff;">
+      </div>
+      <button class="btn-side" id="yerel-pop-clear" data-prov="${esc(prov)}" style="height:32px;">Temizle</button>
+    </div>
+  </div>`;
+}
+function yerelCouncilHtml(r){
+  const c=r.council||{};
+  const tot=r.councilTotal||0;
+  if (!tot) return '';
+  const entries=Object.entries(c).sort((a,b)=>b[1]-a[1]);
+  const dots=entries.map(([p,n])=>{
+    const col=PARTY_COLORS[p]||'#888';
+    return ('<span style="display:inline-block;width:9px;height:9px;margin:1px;background:'+col+';border:1px solid #111827;"></span>').repeat(n);
+  }).join('');
+  const bars=entries.map(([p,n])=>{
+    const pct=Math.round(n/tot*100);
+    return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:4px;">
+      <div style="width:60px;font-weight:900;font-size:11px;color:${PARTY_COLORS[p]||'#111827'};white-space:nowrap;">${esc(p)}</div>
+      <div style="flex:1;height:12px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${pct}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
+      <div style="width:34px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">${n}</div>
+    </div>`;
+  }).join('');
+  return `<div class="sb-card shadow" style="margin-top:12px">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">BELEDİYE MECLİSİ — ${tot} SANDALYE</div></div>
+    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Her partinin oyundan 10 puan düşülür, kalan oylar D'Hondt yöntemiyle dağıtılır.</div>
+    <div style="display:flex;flex-wrap:wrap;width:100%;margin-bottom:10px;">${dots}</div>
+    ${bars}
+  </div>`;
 }
 function yerelSettingsHtml(){
   return `<div class="sb-card shadow" style="margin-bottom:12px">
@@ -2849,6 +2955,33 @@ function renderYerel(){
   });
   const mw=$('#map-wrapper-yerel');
   if (mw) bindMapWrapper('yerel', norm=>{ state.yerelProv=norm; renderYerel(); });
+  $$('#pane_yerel .yerel-ally-ovr').forEach(sel=>{
+    sel.onchange=()=>{
+      const prov=sel.getAttribute('data-prov'), p=sel.getAttribute('data-party'), v=sel.value;
+      if (!state.yerelOverrides) state.yerelOverrides={};
+      if (!state.yerelOverrides[prov]) state.yerelOverrides[prov]={};
+      if (v==='auto') delete state.yerelOverrides[prov][p];
+      else state.yerelOverrides[prov][p]=v;
+      renderYerel();
+    };
+  });
+  const popParty=$('#yerel-pop-party'), popMult=$('#yerel-pop-mult');
+  const setPop=()=>{
+    const prov=popParty.getAttribute('data-prov');
+    if (!state.yerelPop) state.yerelPop={};
+    if (!state.yerelPop[prov]) state.yerelPop[prov]={};
+    const party=popParty.value;
+    if (!party){ delete state.yerelPop[prov]; return; }
+    state.yerelPop[prov][party]=parseFloat(popMult.value)||1;
+  };
+  if (popParty) popParty.onchange=()=>{ setPop(); renderYerel(); };
+  if (popMult) popMult.onchange=()=>{ setPop(); renderYerel(); };
+  const popClear=$('#yerel-pop-clear');
+  if (popClear) popClear.onclick=()=>{
+    const prov=popClear.getAttribute('data-prov');
+    if (state.yerelPop) delete state.yerelPop[prov];
+    renderYerel();
+  };
   $$('#pane_yerel .sb-collapse-head').forEach(h=>{
     h.addEventListener('click',()=>{ h.parentElement.setAttribute('data-open', String(h.parentElement.getAttribute('data-open')!=='true')); });
   });
@@ -3578,7 +3711,7 @@ function renderOlasilik(){
 // ================= boot =================
 async function boot(){
   bindSegNav();
-  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, ytargets] = await Promise.all([
+  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, ytargets, meclis] = await Promise.all([
     fetch('data/base_years.json').then(r=>r.json()),
     fetch('data/districts.json').then(r=>r.json()),
     fetch('data/turkiye.svg').then(r=>r.text()),
@@ -3587,7 +3720,8 @@ async function boot(){
     fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
     fetch('data/yerel_2024.json').then(r=>r.json()).catch(()=>null),
     fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
-    fetch('data/yerel_targets.json').then(r=>r.json()).catch(()=>null)
+    fetch('data/yerel_targets.json').then(r=>r.json()).catch(()=>null),
+    fetch('data/belediye_meclis.json').then(r=>r.json()).catch(()=>null)
   ]);
   YEARS=yrs; DISTRICTS=dists; SVG_TURKIYE=cleanSvgString(svg);
   window.BASE_YEARS=yrs; window.DISTRICTS=dists;
@@ -3596,6 +3730,7 @@ async function boot(){
   YEREL_2024=yerel;
   BUYUKSEHIR={}; for (const b of big) BUYUKSEHIR[String(b).toLowerCase()]=1;
   YEREL_TARGETS=ytargets;
+  BELEDIYE_MECLIS=meclis;
   POLLS_RAW=polls||[];
   const seen={}; FIRM_NAMES_JS=[];
   for (const r of POLLS_RAW){ if (r && r.Firma && !seen[r.Firma]){ seen[r.Firma]=1; FIRM_NAMES_JS.push(String(r.Firma)); } }
