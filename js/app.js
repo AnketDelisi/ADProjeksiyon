@@ -2681,33 +2681,37 @@ function buildTrendSvg(df, tabloPartileri){
       const li=padL+(xd/spanDays)*(w-padL-padR);
       bandPts.push([li, sy(mu+half), sy(mu-half), sy(mu)]);
     }
+    let lastLi=null,lastTi=null;
     if (bandPts.length>1){
+      // band polygon (kernel mean ± 90% range)
       let bandPath='M '+bandPts.map(pt=>pt[0].toFixed(1)+' '+pt[1].toFixed(1)).join(' L ');
       const bot=bandPts.slice().reverse();
       bandPath+=' L '+bot.map(pt=>pt[0].toFixed(1)+' '+pt[2].toFixed(1)).join(' L ')+' Z';
       svg+=`<path d="${bandPath}" fill="${color}" opacity="0.12" stroke="none"/>`;
+      for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
+      // bold line = Gaussian kernel weighted mean (consistent with the band center)
       let meanPath='';
       for (let i=0;i<bandPts.length;i++){
         const pt=bandPts[i];
         meanPath+=(meanPath===''?`M ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`:` L ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`);
+        lastLi=pt[0]; lastTi=pt[3];
       }
-      svg+=`<path d="${meanPath}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.9" stroke-linejoin="round"/>`;
+      if (meanPath) svg+=`<path d="${meanPath}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    } else {
+      // fallback: LOWESS flat line for very sparse parties
+      for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
+      let path="";
+      for (let i=0;i<res.xs.length;i++){
+        const yi=res.ys[i];
+        if (yi==null||isNaN(yi)||!isFinite(yi)) continue;
+        const li=padL+(res.xs[i]/spanDays)*(w-padL-padR);
+        const ti=sy(yi);
+        path+=(path===''?`M ${li.toFixed(1)} ${ti.toFixed(1)}`:` L ${li.toFixed(1)} ${ti.toFixed(1)}`);
+        lastLi=li; lastTi=ti;
+      }
+      if (path && lastLi!==null) svg+=`<path d="${path}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
     }
-    for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
-    let path="";
-    let lastLi=null,lastTi=null;
-    for (let i=0;i<res.xs.length;i++){
-      const yi=res.ys[i];
-      if (yi==null||isNaN(yi)||!isFinite(yi)) continue;
-      const li=padL+(res.xs[i]/spanDays)*(w-padL-padR);
-      const ti=sy(yi);
-      path+=(path===''?`M ${li.toFixed(1)} ${ti.toFixed(1)}`:` L ${li.toFixed(1)} ${ti.toFixed(1)}`);
-      lastLi=li; lastTi=ti;
-    }
-    if (path && lastLi!==null){
-      svg+=`<path d="${path}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
-      labelPool.push([lastTi,p,color,lastLi]);
-    }
+    if (lastLi!==null) labelPool.push([lastTi,p,color,lastLi]);
   }
   labelPool.sort((a,b)=>a[0]-b[0]);
   const minGap=17.0, maxY=h-padB-4;
