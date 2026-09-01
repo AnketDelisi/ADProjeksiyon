@@ -2748,14 +2748,15 @@ function yerelDetailHtml(){
         const maj=r.majors.indexOf(p)>=0;
         const boost=r.popApplied&&r.popApplied[p];
         const flowIn=r.flows[p];
-        const flowTxt=flowIn&&flowIn.length?`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`:'';
+        const subLines=[];
+        if (boost) subLines.push(`<div style="font-size:10px;color:${PARTY_COLORS[p]||'#888'};font-weight:900;margin-top:2px;">POPÜLERLİK ÇARPANI ×${parseFloat(boost).toFixed(1)}</div>`);
+        if (flowIn&&flowIn.length) subLines.push(`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`);
         return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
           <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
           <div style="flex:1;">
             <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
-            ${flowTxt}
+            ${subLines.join('')}
           </div>
-          ${boost?`<span style="display:inline-block;padding:2px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:9px;letter-spacing:0.5px;">ÇARPAN ×${parseFloat(boost).toFixed(1)}</span>`:''}
           <div style="width:60px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)}</div>
         </div>`;
       }).join('')}
@@ -2775,27 +2776,31 @@ function yerelDetailHtml(){
 function yerelAllyOverridesHtml(prov){
   const allysObj=yerelAlliancesObj();
   const over=(state.yerelOverrides&&state.yerelOverrides[prov])||{};
-  const rows=[];
+  const groups=[];
   for (const aly of Object.keys(allysObj)){
     const parts=allysObj[aly];
     if (parts.length<2) continue;
-    for (const p of parts){
+    const chips=parts.map(p=>{
       const cur=over[p]||'auto';
-      rows.push(`<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
-        <div style="width:190px;font-weight:900;font-size:11px;color:${PARTY_COLORS[p]||'#111827'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(aly)} / ${esc(p)}</div>
-        <select class="yerel-ally-ovr" data-prov="${esc(prov)}" data-party="${esc(p)}" style="height:30px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;padding:0 6px;background:#fff;">
+      return `<div style="display:flex;align-items:stretch;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};box-shadow:2px 2px 0 rgba(17,24,39,1);">
+        <span style="display:flex;align-items:center;color:#FFF;font-weight:900;font-size:10px;padding:0 7px;white-space:nowrap;">${esc(p)}</span>
+        <select class="yerel-ally-ovr" data-prov="${esc(prov)}" data-party="${esc(p)}" style="height:26px;border:none;border-left:2px solid #111827;font-weight:900;font-size:10px;padding:0 4px;background:#fff;color:#1A1A1A;">
           <option value="auto" ${cur==='auto'?'selected':''}>Otomatik</option>
-          <option value="drop" ${cur==='drop'?'selected':''}>Çekil (destek)</option>
+          <option value="drop" ${cur==='drop'?'selected':''}>Çekil</option>
           <option value="stay" ${cur==='stay'?'selected':''}>Yarış</option>
         </select>
-      </div>`);
-    }
+      </div>`;
+    }).join('');
+    groups.push(`<div style="border:2px solid var(--c-edge);background:#F7F7F5;padding:8px;margin-bottom:8px;">
+      <div style="font-weight:900;font-size:11px;color:#1A1A1A;margin-bottom:6px;letter-spacing:0.5px;">${esc(aly)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${chips}</div>
+    </div>`);
   }
-  if (!rows.length) return '';
+  if (!groups.length) return '';
   return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">ADAY ÇEKİLME AYARLARI (İL)</div></div>
     <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">İttifak üyesinin bu ilde çekilip çekilmeyeceğini seçin. 'Otomatik': ana aday olamazsa ittifak ortağına tam destek verir.</div>
-    ${rows.join('')}
+    ${groups.join('')}
   </div>`;
 }
 function yerelPopHtml(prov, parties){
@@ -2806,6 +2811,10 @@ function yerelPopHtml(prov, parties){
   return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">POPÜLERLİK ÇARPANI (İL)</div></div>
     <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Adayın yerel popülaritesi: seçtiğiniz partinin bu ildeki oyu çarpanla artırılır.</div>
+    ${curParty?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;border:2px solid #111827;background:#F7F7F5;box-shadow:2px 2px 0 rgba(17,24,39,1);">
+      <span style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1px;">AKTİF ÇARPAN</span>
+      <span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[curParty]||'#888'};color:#FFF;font-weight:900;font-size:11px;">${esc(curParty)} ×${parseFloat(curMult).toFixed(1)}</span>
+    </div>`:''}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
       <select id="yerel-pop-party" data-prov="${esc(prov)}" style="height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 6px;background:#fff;">
         <option value="">— Parti seç —</option>
