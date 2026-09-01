@@ -224,19 +224,27 @@ function nationalSummaryRows(){
   if (state.mapMode==="İttifak Renklendirmesi"){
     const keyset = new Set([...Object.keys(dUn), ...Object.keys(seatMap)]);
     const badges = partyAbbrevColor(keyset, p=>dUn[p]||0);
-    const gv={},gs={},gc={},grep={};
+    // zeroed joint-adjusted bases so alliance sums don't double-count joiners
+    const baseV0={...BASE_VOTES_2023}, baseS0={...BASE_SEATS_2023};
+    for (const um of Object.keys(jl)) for (const jp of jl[um]){
+      baseV0[um]=(baseV0[um]||0)+(baseV0[jp]||0); baseV0[jp]=0;
+      baseS0[um]=(baseS0[um]||0)+(baseS0[jp]||0); baseS0[jp]=0;
+    }
+    const gv={},gs={},gc={},grep={},gBaseV={},gBaseS={};
     for (const p of keyset){
       const [ab,col] = badges.get(p) || [p, PARTY_COLORS[p]||'#888'];
       const v = dUn[p]||0, s = seatMap[p]||0;
       if (v<=0 && s<=0) continue;
       gv[ab]=(gv[ab]||0)+v; gs[ab]=(gs[ab]||0)+s; gc[ab]=col;
+      gBaseV[ab]=(gBaseV[ab]||0)+(baseV0[p]||0);
+      gBaseS[ab]=(gBaseS[ab]||0)+(baseS0[p]||0);
       if (!badges.has(p)) grep[ab]=p;
       else if (grep[ab]===undefined || (dUn[p]||0)>(dUn[grep[ab]]||0)) grep[ab]=p;
     }
     entities = Object.keys(gv);
     const rows = entities.map(ab=>{
       const votePct=gv[ab], seats=gs[ab], col=gc[ab];
-      return summaryItem(ab, seats, votePct, col, adjBaseV[ab]||0, adjBaseS[ab]||0, dUn, grep[ab]||ab);
+      return summaryItem(ab, seats, votePct, col, gBaseV[ab]||0, gBaseS[ab]||0, dUn, grep[ab]||ab);
     });
     return rankize(rows);
   }
@@ -2262,7 +2270,7 @@ function infoTurkeyMapHtml(){
   }
   const seatsData={};
   for (const r of df) seatsData[[r.d,r.p].join('\u0000')]=r.seats_won;
-  return renderColoredSvg(SVG_TURKIYE, {provWinners, distWinners, colorsDict:PARTY_COLORS, tooltipDict:{}, seatsData, showBadges:false, customColors, uid:'infogen'});
+  return renderColoredSvg(SVG_TURKIYE, {provWinners, distWinners, colorsDict:PARTY_COLORS, tooltipDict:{}, seatsData, showBadges:false, customColors, uid:'infogen', svgFile:'turkiye.svg'});
 }
 async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assignedParties, colors, alliances){
   const partyToAly={};
