@@ -2739,10 +2739,13 @@ function buildBeeSwarmSvg(scatterX, scatterColors){
   const sy=(v)=>padT+(v+yMax)/(2*yMax)*(h-padT-padB);
   let svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg" style="background:#FFFFFF;">`;
   svg+=`<rect x="${sx(0)}" y="${padT}" width="${sx(300.5)-sx(0)}" height="${h-padT-padB}" fill="#E30A17" opacity="0.08"/>`;
+  svg+=`<rect x="${sx(275.5)}" y="${padT}" width="${sx(300.5)-sx(275.5)}" height="${h-padT-padB}" fill="#F5A623" opacity="0.10"/>`;
   svg+=`<rect x="${sx(300.5)}" y="${padT}" width="${sx(600)-sx(300.5)}" height="${h-padT-padB}" fill="#FF8C00" opacity="0.08"/>`;
-  const x301=sx(300.5);
+  const x301=sx(300.5), x276=sx(275.5);
   svg+=`<line x1="${x301}" y1="${padT}" x2="${x301}" y2="${h-padB}" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="6,6"/>`;
+  svg+=`<line x1="${x276}" y1="${padT}" x2="${x276}" y2="${h-padB}" stroke="#1A1A1A" stroke-width="1.5" stroke-dasharray="4,6"/>`;
   svg+=`<text x="${x301}" y="${padT-16}" text-anchor="middle" fill="#1A1A1A" font-size="13" font-weight="900">301 ÇOĞUNLUK SINIRI</text>`;
+  svg+=`<text x="${x276}" y="${padT-16}" text-anchor="middle" fill="#B45309" font-size="12" font-weight="900">276 AZINLIK SINIRI</text>`;
   for (let gv=0; gv<=600; gv+=50){
     if (gv<xMin||gv>xMax) continue;
     const gx=sx(gv);
@@ -2765,7 +2768,7 @@ function buildBeeSwarmSvg(scatterX, scatterColors){
     }
     cy=Math.max(padT,Math.min(h-padB,cy));
     placed.push([px,cy]);
-    const majority = cv==='#FF8C00' ? " Cumhur ittifakı çoğunluğu" : " muhalefet çoğunluğu";
+    const majority = cv==='#FF8C00' ? " Cumhur ittifakı çoğunluğu" : cv==='#FFB74D' ? " Cumhur ittifakı azınlığı" : " muhalefet çoğunluğu";
     svg+=`<g><title>${xv} sandalye — ${majority}</title><circle cx="${px.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${cv}" stroke="rgba(255,255,255,0.9)" stroke-width="0.6"/></g>`;
   }
   return svg+'</svg>';
@@ -2774,10 +2777,16 @@ function mcTitleHtml(prob, allianceName, color){
   const label = prob>=95?'KESİN FAVORİ':prob>=75?'GÜÇLÜ FAVORİ':prob>=60?'FAVORİ':'KILPAYI ÖNDE';
   return `<div style='text-align: center; font-weight: 900; font-size: 1.8rem; letter-spacing: -1px; text-transform: uppercase; margin-bottom: 1rem; color: #1A1A1A;'>MECLİS ÇOĞUNLUĞUNDA <span style='color: ${color} !important;'>${allianceName}</span> ${label}</div>`;
 }
-function mcFaceoffHtml(muhProb, cumhurProb, muhWins, cumhurWins){
-  const _muhSeg=Math.max(muhProb,1.0), _cumSeg=Math.max(cumhurProb,1.0);
-  const _totSeg=_muhSeg+_cumSeg;
-  const _muhW=(_muhSeg/_totSeg)*100, _cumW=(_cumSeg/_totSeg)*100;
+// standard normal from the seeded rng (Box-Muller)
+function gaussRandom(rng){
+  let u1=rng(); if (u1<=0) u1=1e-12;
+  const u2=rng();
+  return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+}
+function mcFaceoffHtml(muhProb, cumhurProb, azProb, muhWins, cumhurWins, cumhurAz){
+  const _muhSeg=Math.max(muhProb,1.0), _cumSeg=Math.max(cumhurProb,1.0), _azSeg=Math.max(azProb,1.0);
+  const _totSeg=_muhSeg+_cumSeg+_azSeg;
+  const _muhW=(_muhSeg/_totSeg)*100, _cumW=(_cumSeg/_totSeg)*100, _azW=(_azSeg/_totSeg)*100;
   const _leader=(muhProb>=cumhurProb)?"MUHALEFET":"CUMHUR";
   const _lpct=Math.max(muhProb,cumhurProb);
   return (
@@ -2787,17 +2796,21 @@ function mcFaceoffHtml(muhProb, cumhurProb, muhWins, cumhurWins){
     +`<span style='color:#E30A17;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${muhProb}</span>`
     +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>MUHALEFET ÇOĞUNLUĞU</span>`
     +`<span style='color:#CBD5E1;font-size:20px;font-weight:900;'>·</span>`
+    +`<span style='color:#B45309;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${azProb}</span>`
+    +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>AZINLIK</span>`
+    +`<span style='color:#CBD5E1;font-size:20px;font-weight:900;'>·</span>`
     +`<span style='color:#FF8C00;font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;'>%${cumhurProb}</span>`
     +`<span style='color:#71716E;font-size:11px;font-weight:900;letter-spacing:1px;'>CUMHUR ÇOĞUNLUĞU</span>`
     +`</div>`
     +`<div style='position:relative;'>`
     +`<div style='display:flex;height:16px;border:2px solid #111827;box-shadow:3px 3px 0 rgba(17,24,39,1);overflow:hidden;'>`
     +`<div style='width:${_muhW.toFixed(1)}%;background:#E30A17;'></div>`
+    +`<div style='width:${_azW.toFixed(1)}%;background:#FFB74D;'></div>`
     +`<div style='width:${_cumW.toFixed(1)}%;background:#FF8C00;'></div>`
     +`</div>`
     +`<div style='position:absolute;left:50%;top:-7px;transform:translateX(-50%);width:3px;height:30px;background:#111827;'></div>`
     +`</div>`
-    +`<div style='display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:900;color:#71716E;'><span>MUHALEFET — ${muhWins} / 500 senaryo</span><span style='color:#1A1A1A;'>${_leader} %${_lpct}</span><span>CUMHUR — ${cumhurWins} / 500 senaryo</span></div>`
+    +`<div style='display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:900;color:#71716E;'><span>MUHALEFET — ${muhWins} / 500 senaryo</span><span style='color:#1A1A1A;'>${_leader} %${_lpct}</span><span>CUMHUR — ${cumhurWins+cumhurAz} / 500 (çoğunluk ${cumhurWins} · azınlık ${cumhurAz})</span></div>`
     +`</div>`
   );
 }
@@ -2882,8 +2895,13 @@ function runMc(){
       for (const p of Object.keys(agirlikliOylar)) agirlikliOylar[p]=(agirlikliOylar[p]/aSum)*100;
 
       const iterCount=500, hataPayi=state.hataPayi;
+      // correlated noise: national shock (shared by all districts) + per-province shocks
+      const MC_NAT_SIGMA=0.03, MC_PROV_SIGMA=0.04;
+      const provSet={};
+      for (const key of Object.keys(baseObj.base)){ const prov=String(key.split('|')[0]).replace(/[0-9]+$/,''); provSet[prov]=1; }
+      const MC_PROVS=Object.keys(provSet);
       const rng=mulberry32(Math.floor(Math.random()*0x7fffffff)|0);
-      let cumhurWins=0,muhalefetWins=0;
+      let cumhurWins=0,muhalefetWins=0,cumhurAz=0;
       const mcSeatsHistory={}, firstPartyWins={};
       for (const p of allP){ mcSeatsHistory[p]=[]; firstPartyWins[p]=0; }
       const districtWinHistory={};
@@ -2898,8 +2916,21 @@ function runMc(){
           for (let k=0;k<partiesInMix.length;k++) mcInputsNorm[partiesInMix[k]]=mcVals[k];
         }
         for (const p of allP){ if (mcInputsNorm[p]===undefined) mcInputsNorm[p]=0.0; }
+        // correlated error model: shared national shock + per-province multipliers per party
+        const provBoostMap={};
+        for (const p of partiesInMix){
+          const natMult=Math.exp(MC_NAT_SIGMA*gaussRandom(rng));
+          mcInputsNorm[p]*=natMult;
+          const pmap={};
+          for (const prov of MC_PROVS) pmap[prov]=Math.exp(MC_PROV_SIGMA*gaussRandom(rng));
+          const def=REGIONAL_BOOSTS_DEFAULT[p];
+          if (def && def.multiplier>1 && def.provinces){
+            for (const prov of def.provinces){ if (pmap[prov]!==undefined) pmap[prov]*=def.multiplier; }
+          }
+          provBoostMap[p]={map:pmap};
+        }
 
-        const dfMc=run_simulation(baseObj, baseNational, mcInputsNorm, alliances, jointL, state.threshold, state.allocation, REGIONAL_BOOSTS_DEFAULT, allP);
+        const dfMc=run_simulation(baseObj, baseNational, mcInputsNorm, alliances, jointL, state.threshold, state.allocation, provBoostMap, allP);
         const mcSeats={};
         for (const r of dfMc) mcSeats[r.p]=(mcSeats[r.p]||0)+r.seats_won;
         for (const p of allP) mcSeatsHistory[p].push(mcSeats[p]||0);
@@ -2924,15 +2955,16 @@ function runMc(){
         }
         const iktidarKoltuk=(mcSeats.AKP||0)+(mcSeats.MHP||0)+(mcSeats.BBP||0)+(mcSeats.YRP||0)+(mcSeats.HUDA||0);
         if (iktidarKoltuk>=301){ cumhurWins++; scatterColors.push('#FF8C00'); }
+        else if (iktidarKoltuk>=276){ cumhurAz++; scatterColors.push('#FFB74D'); }
         else { muhalefetWins++; scatterColors.push('#E30A17'); }
         scatterX.push(iktidarKoltuk);
       }
 
-      const cumhurProb=Math.floor(cumhurWins/iterCount*100), muhProb=Math.floor(muhalefetWins/iterCount*100);
+      const cumhurProb=Math.floor(cumhurWins/iterCount*100), muhProb=Math.floor(muhalefetWins/iterCount*100), azProb=Math.floor(cumhurAz/iterCount*100);
       if (cumhurProb>50) state.mc.titleHtml=mcTitleHtml(cumhurProb,"CUMHUR",PARTY_COLORS.AKP||'#FDA000');
       else if (muhProb>50) state.mc.titleHtml=mcTitleHtml(muhProb,"MUHALEFET",PARTY_COLORS.YENI||'#A7050E');
       else state.mc.titleHtml="<div style='text-align: center; font-weight: 900; font-size: 1.8rem; letter-spacing: -1px; text-transform: uppercase; margin-bottom: 1rem; color: #1A1A1A;'>MECLİS ÇOĞUNLUĞU <span style='color: #71716E !important;'>BAŞA BAŞ</span></div>";
-      state.mc.faceoffHtml=mcFaceoffHtml(muhProb,cumhurProb,muhalefetWins,cumhurWins);
+      state.mc.faceoffHtml=mcFaceoffHtml(muhProb,cumhurProb,azProb,muhalefetWins,cumhurWins,cumhurAz);
 
       const confRows=[];
       for (const p of allP){

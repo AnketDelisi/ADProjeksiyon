@@ -194,12 +194,15 @@ function run_simulation(baseObj, base_nat, user_nat, alliances, joint_lists, thr
       let pc = user_nat[p] || 0.0;
       if (regional_boosts){
         const province = String(d).replace(/[0-9]+$/,'');
+        const provNorm = _normId(province);
         const bo = regional_boosts[p];
-        if (bo && bo.multiplier > 1.0){
-          // matada with Python: province_clean is the display split; provs are lowercased norm ids;
-          // the comparison never matches for Turkish names -> boosts are no-ops, matching the app.
-          const provDisplay = _getDisplayName(province);
-          if (bo.provinces.includes(provDisplay)) pc = Math.min(99.9, Math.max(0.001, pc * bo.multiplier));
+        if (bo){
+          let mult = null;
+          if (bo.map && bo.map[provNorm] !== undefined) mult = bo.map[provNorm];
+          else if (bo.provinces && bo.provinces.indexOf(provNorm) >= 0) mult = bo.multiplier;
+          if (mult !== null && mult !== undefined && isFinite(mult)){
+            pc = Math.min(99.9, Math.max(0.001, pc * mult));
+          }
         }
       }
       df.push({d, p, R, Pc:pc, Bc});
