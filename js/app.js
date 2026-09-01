@@ -2471,6 +2471,8 @@ async function downloadCbIlInfographic(rn){
 // ---------------- YEREL SEÇİM (il bazlı yerel model) ----------------
 // 2024 tabanı + ulusal senaryo girdisi üzerinden logit swing, il bazlı büyük/minör
 // ayrımı ve blok çekim akışı (CB mekaniğine benzer) ile belediye başkanı tahmini.
+// Parti güç ayarı: CHP ve A hafifçe zayıflatılır (yerel dinamikler).
+const YEREL_NERF = {'CHP':0.90, 'A':0.75};
 const YEREL_MATRIX_DEFAULTS = {
   'AKP':   {'AKP':1.0,'YENI':0.0,'DEM':0.0,'Cumhur':0.85,'Milliyetçi Muh.':0.30,'Sol Muh.':0.0,'Muhafazakar Muh.':0.60},
   'YENI':  {'AKP':0.0,'YENI':1.0,'DEM':0.35,'Cumhur':0.0,'Milliyetçi Muh.':0.25,'Sol Muh.':0.65,'Muhafazakar Muh.':0.10},
@@ -2599,6 +2601,14 @@ function runLocal(){
       }
       final[p]=Math.max(0,v-flowed);
     }
+    // party strength adjustments (nerf): CHP ve A hafifçe zayıflatılır
+    const nerf=YEREL_NERF||{};
+    let anyN=false;
+    for (const p of Object.keys(final)){ const f=nerf[p]; if (f!==undefined && f!==1){ final[p]=(final[p]||0)*f; anyN=true; } }
+    if (anyN){
+      const tN=Object.values(final).reduce((a,b)=>a+b,0);
+      for (const p of Object.keys(final)) final[p]=tN>0?final[p]/tN*100:0;
+    }
     const sortedF=Object.entries(final).sort((a,b)=>b[1]-a[1]);
     out[prov]={prov, winner:sortedF[0][0], winnerPct:sortedF[0][1],
       margin:sortedF.length>1?sortedF[0][1]-sortedF[1][1]:sortedF[0][1],
@@ -2680,8 +2690,6 @@ function yerelDetailHtml(){
     </div>
     <div style="padding:0 2px">
       ${rows.map(([p,v])=>{
-        const base=parseFloat(r.base[p])||0;
-        const delta=v-base;
         const maj=r.majors.indexOf(p)>=0;
         const flowIn=r.flows[p];
         const flowTxt=flowIn&&flowIn.length?`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`:'';
@@ -2692,7 +2700,6 @@ function yerelDetailHtml(){
             ${flowTxt}
           </div>
           <div style="width:60px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)}</div>
-          <div style="width:64px;text-align:right;font-size:11px;font-weight:800;color:${delta>0?'#10B981':delta<0?'#E00000':'#9AA0A6'};font-variant-numeric:tabular-nums;">${delta>0?'+':''}${delta.toFixed(1)}</div>
         </div>`;
       }).join('')}
     </div>
