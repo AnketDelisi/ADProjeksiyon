@@ -134,7 +134,13 @@ function runSimulation(){
   state.provResultsHtml = buildProvinceResultsHtml();
 
   if (state.detailProv) setDetailProvince(state.detailProv);
-  renderMeclis();
+  renderCurrentTab();
+}
+function renderCurrentTab(){
+  const t=currentTab();
+  if (t==='tab_cb') renderCB();
+  else if (t==='tab_538') renderOlasilik();
+  else renderMeclis();
 }
 
 function computeSwing(baseObj, un){
@@ -983,7 +989,7 @@ function renderSidebar(){
   // vote rows
   state.activeParties.forEach(p=>{
     const inp=$(`#vote-${cssSafe(p)}`);
-    if (inp) inp.onchange=()=>{ state.userInputs[p]=parseFloat(inp.value); renderSidebar(); };
+    if (inp) inp.onchange=()=>{ state.userInputs[p]=parseFloat(inp.value); renderSidebar(); if (state.tab==='tab_cb') renderCB(); };
     const del=$(`#vdel-${cssSafe(p)}`);
     if (del) del.onclick=()=>{ removeParty(p); };
   });
@@ -1546,11 +1552,579 @@ function cssSafe(s){ return s.replace(/[^A-Za-z0-9_-]/g,'_'); }
 window.__clearIlce = ()=>clearDetailIlce();
 window.__clearProv = ()=>clearDetailProv();
 
-// ---------------- CB (minimal port; full parity deferred to later milestone) ----------------
-function renderCB(){ $('#pane_cb').innerHTML=`<div class="tab-pane-inner"><div class="dual">
-  <div class="half"><div class="colstack"><div class="sb-kicker"><div class="bar"></div><div class="t">1. TUR ADAYLARI</div></div><div class="big-note">Cumhurbaşkanlığı modülü yakında bu alanda çalışacak.</div></div></div>
-  <div class="half"><div class="colstack"><div class="sb-kicker"><div class="bar"></div><div class="t">1. TUR SONUÇLARI</div></div><div class="big-note">-</div></div></div>
-</div></div>`; }
+// ---------------- CB (CUMHURBAŞKANLIĞI) full port ----------------
+function cbDetailBlank(){ return {prov:"",name:"",summary:[],mapHtml:"",tabLabels:[],barsMap:{},activeTab:"",activeBars:[],ilceSelected:"",ilceName:"",ilceBarsMap:{}}; }
+function cbState(){
+  if (!state.cb) state.cb={cands1:JSON.parse(JSON.stringify(DEFAULT_CB_CANDS_1)), nextC1Id:9, cands2:[], res1:[], res2:[], r1WinnerPct:0, r1WinnerText:"", r1Top1:"", r1Top2:"", mapHtml1:"", mapHtml2:"", pickerOpenId:"", r1:cbDetailBlank(), r2:cbDetailBlank()};
+  return state.cb;
+}
+function cbPartyWeights(cand){
+  const nominating=String(cand.party||"");
+  const votes=cand.votes||{};
+  const weights={};
+  for (const g of CB_GROUP_LIST){
+    const gParties=CB_GROUPS[g];
+    const ratio=(parseFloat(votes[g])||0)/100;
+    const multi=gParties.length>1;
+    for (const p of gParties){
+      let w=ratio;
+      if (p===nominating && multi) w=Math.min(1, ratio+CB_NOMINATING_BONUS/100);
+      weights[p]=w;
+    }
+  }
+  for (const cp of Object.keys(state.customPartiesDef||{})) weights[cp]=Math.min(1,(parseFloat(votes[cp])||0)/100);
+  return weights;
+}
+function cbBlockColors(){
+  const result={};
+  for (const g of CB_GROUP_LIST){
+    let gVote=0; for (const p of CB_GROUPS[g]) gVote+=(state.userInputs[p]||0);
+    let color="#888888";
+    if (gVote>0){
+      let leader=null;
+      for (const p of CB_GROUPS[g]){ const v=state.userInputs[p]||0; if (!leader||v>leader[1]) leader=[p,v]; }
+      if (leader) color=PARTY_COLORS[leader[0]]||'#888888';
+    }
+    result[g]=color;
+  }
+  for (const cp of Object.keys(state.customPartiesDef||{})) result[cp]=PARTY_COLORS[cp]||'#888888';
+  return result;
+}
+function cbBlockTotals(){
+  const result={};
+  const total=state.activeParties.reduce((a,p)=>a+(state.userInputs[p]||0),0);
+  const fmt=v=>`%${total>0?(v/total*100).toFixed(1):(0).toFixed(1)}`;
+  for (const g of CB_GROUP_LIST){
+    let gVote=0; for (const p of CB_GROUPS[g]) gVote+=(state.userInputs[p]||0);
+    result[g]=fmt(gVote);
+  }
+  for (const cp of Object.keys(state.customPartiesDef||{})) result[cp]=fmt(state.userInputs[cp]||0);
+  return result;
+}
+function cbVoteKeys(){ return CB_GROUP_LIST.concat(Object.keys(state.customPartiesDef||{})); }
+function cbCardVotes(c){
+  const v=Object.assign({}, c.votes||{});
+  for (const k of cbVoteKeys()) if (v[k]===undefined) v[k]=0;
+  return v;
+}
+function cbPartyBtnHtml(c){
+  const col=PARTY_COLORS[c.party]||'#888';
+  return `<div class="cb-party-btn" id="cb-party-${c.id}" style="background:${col}" title="Nominin partisini seç"><img src="${logoURL(c.party)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span style="display:none">${esc(c.party)}</span></div>`;
+}
+function cbPickerHtml(c){
+  const open=cbState().pickerOpenId===c.id;
+  return `<div class="cb-picker" ${open?'':'style="display:none"'} data-cand="${c.id}">
+    <div class="cb-picker-head"><div>NOMİNİN PARTİSİNİ SEÇ</div><button class="cb-picker-close">✕</button></div>
+    ${allParties().map(p=>`<div class="cb-picker-row" data-cand="${c.id}" data-party="${esc(p)}">
+      <div class="cb-picker-logo" style="background:${PARTY_COLORS[p]||'#888'}"><span>${esc(p)}</span></div>
+      <div class="cb-picker-name">${esc(p)}</div>
+      ${c.party===p?'<div class="cb-picker-check">✓</div>':''}
+    </div>`).join('')}
+  </div>`;
+}
+function cbBlockGridHtml(votes, candId, isR2){
+  const bcols=cbBlockColors(), btot=cbBlockTotals();
+  return cbVoteKeys().map(g=>`
+    <div class="cb-block">
+      <div><div class="cb-block-lbl" style="color:${bcols[g]||'#111827'}">${esc(g)}</div><div class="cb-block-tot">${btot[g]||'%0.0'}</div></div>
+      <input class="cb-num ${isR2?'cb-r2-num':''}" type="number" min="0" max="100" step="1" ${isR2?'':`data-cand="${candId}" `}data-group="${esc(g)}" value="${votes[g]}" />
+    </div>`).join('');
+}
+function cbCandidateCardHtml(c){
+  const votes=cbCardVotes(c);
+  return `<div class="cand-card" id="cand-card-${c.id}">
+    <div class="head">
+      <div class="cb-name-in">
+        <div class="cb-mini-label">ADAY</div>
+        <input class="cb-name-input" data-cand="${c.id}" value="${esc(c.name)}" placeholder="Aday adı" />
+      </div>
+      ${cbPartyBtnHtml(c)}
+      ${cbState().cands1.length>1?`<button class="cb-del" data-cand="${c.id}" title="Adayı kaldır">✕</button>`:''}
+    </div>
+    <div class="cb-grid">${cbBlockGridHtml(votes, c.id, false)}</div>
+    ${cbPickerHtml(c)}
+  </div>`;
+}
+function cbR2CardHtml(c){
+  const votes=cbCardVotes(c);
+  return `<div class="cand-card cb-r2-card">
+    <div class="head">
+      <div class="cb-mini-label" style="margin-right:8px">2. TUR ADAYI</div>
+      ${cbPartyBtnHtml(c)}
+      <div class="cb-name-in" style="margin-left:8px"><input class="cb-name-input" value="${esc(c.name)}" readonly /></div>
+    </div>
+    <div class="cb-grid">${cbBlockGridHtml(votes, null, true)}</div>
+  </div>`;
+}
+function cbBarRowHtml(item){
+  return `<div class="cb-bar"><div class="cb-name">${esc(item.name)}</div><div class="cb-track"><div class="fill" style="width:${item.width};background:${item.party_color}"></div></div><div class="cb-vote">${esc(item.vote_text)}</div></div>`;
+}
+function cbBarItemsDetail(ser, candColors, candPP){
+  const items=Object.entries(ser).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const out=[];
+  if (!items.length) return out;
+  const maxV=items[0][1];
+  for (const [cand,v] of items){
+    const cname=String(cand);
+    out.push({
+      party:cname,
+      logo:logoURL(candPP[cname]||''),
+      sq_text:candPP[cname]||cname,
+      color:candColors[cname]||'#888888',
+      width:Math.min(100,(v/maxV)*100).toFixed(0)+'%',
+      vote_text:'%'+v.toFixed(1),
+      vote_delta:'', seat_delta:'–', seat_delta_color:'#9E9E9E', no_seat:true
+    });
+  }
+  return out;
+}
+function cbNationalVotes(candsList){
+  const display=displayUserNat();
+  const candData=[];
+  for (const cand of candsList){
+    const nm=String(cand.name||'').trim();
+    if (!nm) continue;
+    let votes=0;
+    const w=cbPartyWeights(cand);
+    for (const p of Object.keys(w)) votes+=(display[p]||0)*w[p];
+    candData.push({name:nm, party:cand.party, votes});
+  }
+  return candData.sort((a,b)=>b.votes-a.votes);
+}
+function cbCandDistPcts(rows, candsList, displayNat){
+  const weights={};
+  for (const cand of candsList){
+    const nm=String(cand.name||'').trim();
+    if (!nm) continue;
+    weights[nm]=cbPartyWeights(cand);
+  }
+  if (!Object.keys(weights).length) return {};
+  const cbParties=allParties().filter(p=>(displayNat[p]||0)>0);
+  const distMap={};
+  for (const r of rows){ if (!distMap[r.d]) distMap[r.d]={}; distMap[r.d][r.p]=(distMap[r.d][r.p]||0)+r.new_vote_pct; }
+  const out={};
+  for (const d of Object.keys(distMap)){
+    const votes=distMap[d];
+    const raw={};
+    for (const nm of Object.keys(weights)){
+      let s=0;
+      for (const p of cbParties){
+        const v=votes[p];
+        if (v===undefined) continue;
+        const w=weights[nm][p];
+        if (!w) continue;
+        s+=v*w;
+      }
+      if (s>0) raw[nm]=s;
+    }
+    const rowSum=Object.values(raw).reduce((a,b)=>a+b,0)||1;
+    const norm={};
+    for (const nm of Object.keys(raw)) norm[nm]=raw[nm]/rowSum*100;
+    out[d]=norm;
+  }
+  return out;
+}
+function cbTipHtml(title, entries, candColors, wide){
+  let tip=`<div class="tip-header">${to_tr_title(title)}</div>`;
+  for (const [c,v] of entries){
+    tip+=`<div class="tip-row"><div class="tip-party" ${wide?'style="width:100px;"':''}>${esc(c)}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${v}%; background-color: ${candColors[c]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)}</div></div>`;
+  }
+  return tip;
+}
+function cbMapData(out, candColors){
+  const provWinners={}, distWinners={}, heatColors={}, tooltips={};
+  for (const d of Object.keys(out)){
+    const entries=Object.entries(out[d]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+    if (!entries.length) continue;
+    const win=entries[0];
+    const nd=normalize_id(d);
+    distWinners[nd]=win[0];
+    heatColors[nd]=get_heatmap_color(candColors[win[0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,win[1]/65)),0,1));
+    tooltips[nd]=cbTipHtml(d, entries, candColors, true);
+  }
+  const provMeans={}, provCnt={};
+  for (const d of Object.keys(out)){
+    const prov=String(d).replace(/\d+$/,'');
+    provCnt[prov]=(provCnt[prov]||0)+1;
+    if (!provMeans[prov]) provMeans[prov]={};
+    const norms=out[d];
+    for (const c of Object.keys(norms)) provMeans[prov][c]=(provMeans[prov][c]||0)+norms[c];
+  }
+  for (const prov of Object.keys(provMeans)){
+    const cnt=provCnt[prov]||1;
+    for (const c of Object.keys(provMeans[prov])) provMeans[prov][c]/=cnt;
+    const entries=Object.entries(provMeans[prov]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+    if (!entries.length) continue;
+    const win=entries[0];
+    const nprov=normalize_id(prov);
+    provWinners[nprov]=win[0];
+    heatColors[nprov]=get_heatmap_color(candColors[win[0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,win[1]/65)),0,1));
+    tooltips[nprov]=cbTipHtml(prov, entries, candColors, true);
+  }
+  return {provWinners, distWinners, heatColors, tooltips};
+}
+function cbComputeMaps(candsList, rn){
+  const candData=cbNationalVotes(candsList);
+  const cbRes={}, candColors={};
+  for (const cd of candData){ cbRes[cd.name]=cd.votes; candColors[cd.name]=PARTY_COLORS[cd.party]||'#888888'; }
+  const total=Object.values(cbRes).reduce((a,b)=>a+b,0);
+  if (total<=0) return {cbRes, mapHtml:''};
+  const out=cbCandDistPcts(state.fullResults, candsList, displayUserNat());
+  let mapHtml='';
+  if (Object.keys(out).length){
+    const md=cbMapData(out, candColors);
+    mapHtml=renderColoredSvg(SVG_TURKIYE, {provWinners:md.provWinners, distWinners:md.distWinners, colorsDict:candColors, tooltipDict:md.tooltips, seatsData:{}, showBadges:false, customColors:md.heatColors, uid:'cb'+rn, svgFile:'turkiye.svg', hiddenInputId:'hidden_prov_input_cb'+rn, detailSectionId:'cb_d'+rn+'_detail_section'});
+  }
+  return {cbRes, mapHtml};
+}
+function computeCbRound1(){
+  const cb=cbState();
+  const un=userNorm();
+  if (Object.values(un).reduce((a,b)=>a+b,0)<=0) return;
+  runSimulation();
+  const {cbRes, mapHtml}=cbComputeMaps(cb.cands1, 1);
+  const total=Object.values(cbRes).reduce((a,b)=>a+b,0);
+  if (total<=0) return;
+  const sorted1=Object.entries(cbRes).sort((a,b)=>b[1]-a[1]);
+  const barData=sorted1.map(([aday,votes])=>[aday,(votes/total)*100]);
+  const maxPct=barData.length?barData[0][1]:0;
+  cb.res1=barData.map(([aday,pct])=>{
+    const c=cb.cands1.find(x=>String(x.name).trim()===aday);
+    return {name:aday, party_color:c?PARTY_COLORS[c.party]||'#888':'#888', vote_text:'%'+pct.toFixed(2), width:(maxPct>0?Math.min(100,(pct/maxPct)*100):0)+'%'};
+  });
+  cb.mapHtml1=mapHtml;
+  const kazananOr=sorted1.length?sorted1[0][1]/total*100:0;
+  cb.r1WinnerPct=kazananOr;
+  cb.r1WinnerText='%'+kazananOr.toFixed(2);
+  cb.r1Top1=sorted1[0]?sorted1[0][0]:'';
+  cb.r1Top2=sorted1[1]?sorted1[1][0]:'';
+  if (kazananOr>50){
+    cb.cands2=[];
+  } else {
+    const findFork=n=>cb.cands1.find(c=>String(c.name).trim()===n);
+    const c1=findFork(cb.r1Top1), c2=findFork(cb.r1Top2);
+    cb.cands2=c1&&c2?[JSON.parse(JSON.stringify(c1)), JSON.parse(JSON.stringify(c2))]:[];
+  }
+  if (cb.r1.prov) setCbDetailProvince(1, cb.r1.prov);
+  renderCB();
+}
+function computeCbRound2(){
+  const cb=cbState();
+  if (!cb.cands2 || cb.cands2.length<2) return;
+  const un=userNorm();
+  if (Object.values(un).reduce((a,b)=>a+b,0)<=0) return;
+  runSimulation();
+  const {cbRes, mapHtml}=cbComputeMaps(cb.cands2, 2);
+  const total=Object.values(cbRes).reduce((a,b)=>a+b,0);
+  if (total<=0) return;
+  const sorted2=Object.entries(cbRes).sort((a,b)=>b[1]-a[1]);
+  const barData=sorted2.map(([aday,votes])=>[aday,(votes/total)*100]);
+  const maxPct=barData.length?barData[0][1]:0;
+  const candColor2={}; for (const c of cb.cands2) candColor2[String(c.name).trim()]=PARTY_COLORS[c.party]||'#888';
+  cb.res2=barData.map(([aday,pct])=>({name:aday, party_color:candColor2[aday]||'#888', vote_text:'%'+pct.toFixed(2), width:(maxPct>0?Math.min(100,(pct/maxPct)*100):0)+'%'}));
+  cb.mapHtml2=mapHtml;
+  if (cb.r2.prov) setCbDetailProvince(2, cb.r2.prov);
+  renderCB();
+}
+function cbR1WinnerLine(cb){
+  if (cb.r1WinnerPct>50) return `<div style="color:#1A8917;font-weight:900;font-size:14px;margin:4px 0">Seçim 1. Turda Bitti! ${esc(cb.r1Top1)} ${esc(cb.r1WinnerText)}</div>`;
+  return `<div style="color:#B0540A;font-weight:900;font-size:14px;margin:4px 0">Hiçbir aday %50+1'e ulaşamadı. 2. tura kalındı.</div>`;
+}
+function cbSummaryChipsHtml(summary){
+  if (!summary || !summary.length) return '';
+  return `<div class="prov-summary">${summary.map(s=>`<div class="prov-card cb-chip" style="border-left:3px solid ${s.color}"><div class="p">${esc(s.name)}</div><div class="v">${esc(s.pct)}</div></div>`).join('')}</div>`;
+}
+function cbDetailSectionHtml(rn){
+  const det=rn===1?cbState().r1:cbState().r2;
+  if (!det.prov) return `<div class="sb-card shadow section-card"><div style="font-weight:900;font-size:12px;color:var(--c-text-muted)">Dinamik il detayı: Haritada bir ile tıklayın.</div></div>`;
+  const bars=det.activeBars||[];
+  const labels=det.tabLabels||[];
+  const ilceBars=det.ilceBarsMap&&det.ilceBarsMap[det.ilceSelected]||[];
+  let inner=`<div class="sb-card shadow">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">${esc(det.name)} İLİ DETAYLI ANALİZİ</div></div>
+    <div style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1.2px;margin:0 0 10px 12px">CUMHURBAŞKANLIĞI SEÇİMİ ${rn}. TUR</div>
+    <div style="padding:0 14px">
+      ${cbSummaryChipsHtml(det.summary)}
+      <div class="city-map-box" id="cb-city-map-${rn}"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
+      ${det.ilceSelected?`
+        <div class="detail-translate">
+          <div class="di-name">${to_tr_title(det.ilceSelected)}</div>
+          <button data-act="cb-clear-ilce" data-rn="${rn}">← İl Geneli</button>
+        </div>
+        <div class="detail-bars">${ilceBars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+        `:`
+        ${labels.length?`<div class="dist-nav">${labels.map((l,i)=>`<button class="dist-nav-trigger cb-dist-trigger" data-rn="${rn}" data-tab="${esc(l)}" ${l===det.activeTab?'data-active="true"':''}>${esc(l)}</button>`).join('')}</div>`:''}
+        <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+        `}
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:14px;width:100%">
+      <button class="btn-download" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
+    </div>
+  </div>`;
+  return `<div id="cb_d${rn}_detail_section">${inner}</div>`;
+}
+function setCbDetailProvince(rn, prov){
+  if (!prov) return;
+  const cb=cbState();
+  const det=rn===1?cb.r1:cb.r2;
+  const cands=rn===1?cb.cands1:cb.cands2;
+  const candColors={}, candPP={};
+  for (const c of cands){ const nm=String(c.name||'').trim(); if (nm){ candColors[nm]=PARTY_COLORS[c.party]||'#888888'; candPP[nm]=c.party; } }
+  det.prov=prov; det.name=to_tr_title(prov);
+  det.summary=[]; det.mapHtml=''; det.tabLabels=[]; det.barsMap={}; det.activeTab=''; det.activeBars=[];
+  det.ilceSelected=''; det.ilceName=''; det.ilceBarsMap={};
+  const normProv=String(prov).replace(/\d+$/,'');
+  const display=displayUserNat();
+  let candPcts=null, tabs={}, labels=[];
+  const provDf=state.fullResults.filter(r=>normalize_id(r.province).startsWith(normProv)||String(r.province).replace(/\d+$/,'').startsWith(normProv));
+  if (provDf.length){
+    const out=cbCandDistPcts(provDf, cands, display);
+    if (Object.keys(out).length){
+      candPcts=out;
+      const means={}; let cnt=0;
+      for (const d of Object.keys(out)){ cnt++; for (const c of Object.keys(out[d])) means[c]=(means[c]||0)+out[d][c]; }
+      for (const c of Object.keys(means)) means[c]/=cnt;
+      labels.push('İl Geneli (Toplam)');
+      tabs['İl Geneli (Toplam)']=cbBarItemsDetail(means, candColors, candPP);
+      const provDists=Object.keys(out);
+      if (provDists.length>1){
+        for (const d of provDists){
+          const m=String(d).match(/(\d+)$/);
+          const label=`${m?m[1]:d}. Bölge`;
+          const items=cbBarItemsDetail(out[d], candColors, candPP);
+          if (items.length){ labels.push(label); tabs[label]=items; }
+        }
+      }
+    }
+  }
+  det.tabLabels=labels; det.barsMap=tabs; det.activeTab=labels[0]||''; det.activeBars=tabs[labels[0]||'']||[];
+  if (candPcts){
+    const means={}; let cnt=0;
+    for (const d of Object.keys(candPcts)){ cnt++; for (const c of Object.keys(candPcts[d])) means[c]=(means[c]||0)+candPcts[d][c]; }
+    for (const c of Object.keys(means)) means[c]/=cnt;
+    const sorted=Object.entries(means).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    det.summary=sorted.map(([c,v])=>({name:c, party:candPP[c]||'', color:candColors[c]||'#888888', pct:'%'+v.toFixed(1), logo:logoURL(candPP[c]||'')}));
+  }
+}
+function selectCbProvince(rn, norm){
+  setCbDetailProvince(rn, norm);
+  renderCB();
+  window.setTimeout(()=>{
+    const sec=document.getElementById('cb_d'+rn+'_detail_section');
+    if (sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
+  },60);
+}
+function setCbDetailDistTab(rn, tab){
+  const det=rn===1?cbState().r1:cbState().r2;
+  const m=det.barsMap||{};
+  if (!(tab in m)) return;
+  det.activeTab=tab; det.activeBars=m[tab];
+  renderCB();
+}
+function setCbDetailIlce(rn, ilceId){
+  if (!ilceId) return;
+  const det=rn===1?cbState().r1:cbState().r2;
+  if (ilceId===det.ilceSelected) return;
+  det.ilceSelected=ilceId; det.ilceName=to_tr_title(String(ilceId));
+  renderCB();
+}
+function clearCbDetailIlce(rn){
+  const det=rn===1?cbState().r1:cbState().r2;
+  det.ilceSelected=''; det.ilceName='';
+  renderCB();
+}
+async function renderCbCityMap(rn, det){
+  const normProv=String(det.prov).replace(/\d+$/,'');
+  const cityData=await loadIlceData(normProv);
+  if (!cityData) return;
+  const svgText=await loadIlceSvg(normProv);
+  if (!svgText) return;
+  const cands=rn===1?cbState().cands1:cbState().cands2;
+  const candColors={}, candPP={};
+  for (const c of cands){ const nm=String(c.name||'').trim(); if (nm){ candColors[nm]=PARTY_COLORS[c.party]||'#888888'; candPP[nm]=c.party; } }
+  const un=userNorm();
+  if (!Object.keys(un).length) return;
+  const yearData={}, seats0={};
+  for (const n of Object.keys(cityData)){
+    const pMap={};
+    for (const P of Object.keys(cityData[n].parties)){ const v=cityData[n].parties[P]; pMap[P]={v18:v.v18||0,v23:v.v23||0,v24:v.v24||0}; }
+    yearData[n]=pMap; seats0[n]=0;
+  }
+  const baseRes=applyCustomPartiesJS(yearData, seats0, state.w18, state.w23, state.w24, state.customPartiesDef);
+  const baseObjN=_weightedBase(state.w18,state.w23,state.w24,state.customPartiesDef);
+  let cityRes;
+  try{ cityRes=run_simulation({base:baseRes.base, seats:seats0}, baseObjN.nat, un, alliancesObj(), jointListsObj(), state.threshold, state.allocation, REGIONAL_BOOSTS_DEFAULT, allParties(), Object.keys(yearData)); }
+  catch(e){ return; }
+  const cityCand=cbCandDistPcts(cityRes, cands, displayUserNat());
+  const candDistWinners={}, candDistColors={}, cbTooltips={}, ilceBarsMap={};
+  for (const d of Object.keys(cityCand)){
+    const entries=Object.entries(cityCand[d]).map(x=>[x[0],parseFloat(x[1])]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+    if (!entries.length) continue;
+    const nDist=normalize_id(d);
+    candDistWinners[nDist]=entries[0][0];
+    candDistColors[nDist]=get_heatmap_color(candColors[entries[0][0]]||'#888888', clamp(Math.max(0.3,Math.min(1.0,entries[0][1]/50)),0,1));
+    const maxV=entries[0][1]||1;
+    let tipH=`<div class="tip-header">${to_tr_title(String(d))}</div>`;
+    for (const [c,v] of entries.slice(0,5)){
+      tipH+=`<div class="tip-row"><div class="tip-party">${esc(c)}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${Math.min(100,(v/maxV)*100).toFixed(1)}%; background-color: ${candColors[c]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)}</div></div>`;
+    }
+    cbTooltips[nDist]=tipH;
+    ilceBarsMap[nDist]=cbBarItemsDetail(cityCand[d], candColors, candPP);
+  }
+  if (!Object.keys(candDistWinners).length) return;
+  det.ilceBarsMap=ilceBarsMap;
+  const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners:candDistWinners, colorsDict:candColors, tooltipDict:cbTooltips, seatsData:{}, showBadges:false, customColors:candDistColors, uid:'cbi'+rn, svgFile:normProv+'.svg', hiddenInputId:'hidden_cb_city_r'+rn, detailSectionId:'cb_d'+rn+'_detail_section'});
+  det.mapHtml=mapHtml;
+  const box=$('#cb-city-map-'+rn);
+  if (box){ box.innerHTML=mapHtml; bindMapWrapper('cbi'+rn, norm=>setCbDetailIlce(rn, norm)); }
+}
+function renderCbCityMapAsync(rn){
+  const det=rn===1?cbState().r1:cbState().r2;
+  if (!det.prov) return;
+  renderCbCityMap(rn, det);
+}
+function setCbCandidateVote(candId, group, value){
+  let val; try{ val=parseFloat(value); }catch(e){ return; }
+  if (isNaN(val)) return;
+  val=Math.max(0,Math.min(100,val));
+  for (const c of cbState().cands1){ if (c.id===candId){ c.votes[group]=val; break; } }
+}
+function setCbCandidateName(candId, name){
+  for (const c of cbState().cands1){ if (c.id===candId){ c.name=name; break; } }
+}
+function toggleCbPicker(id){
+  const cb=cbState();
+  cb.pickerOpenId=cb.pickerOpenId===id?'':id;
+  renderCB();
+}
+function closeCbPicker(){ cbState().pickerOpenId=''; renderCB(); }
+function selectCbParty(candId, party){
+  for (const c of cbState().cands1){ if (c.id===candId){ c.party=party; break; } }
+  cbState().pickerOpenId='';
+  renderCB();
+}
+function addCbCandidate(){
+  const cb=cbState();
+  const v={}; for (const k of cbVoteKeys()) v[k]=0;
+  cb.cands1.push({id:'c1_'+cb.nextC1Id, name:'Aday '+(cb.cands1.length+1), party:'YENI', votes:v});
+  cb.nextC1Id++;
+  renderCB();
+}
+function removeCbCandidate(candId){
+  const cb=cbState();
+  if (cb.cands1.length>1) cb.cands1=cb.cands1.filter(c=>c.id!==candId);
+  renderCB();
+}
+function resetCbCandidates(){ cbState().cands1=JSON.parse(JSON.stringify(DEFAULT_CB_CANDS_1)); renderCB(); }
+function setCb2Vote(group, value){
+  const cb=cbState();
+  if (!cb.cands2 || cb.cands2.length<2) return;
+  let val; try{ val=parseFloat(value); }catch(e){ return; }
+  if (isNaN(val)) return;
+  val=Math.max(0,Math.min(100,val));
+  cb.cands2[0].votes[group]=val;
+  cb.cands2[1].votes[group]=Math.max(0,100-val);
+  renderCB();
+}
+function bindCBEvents(){
+  const on=(id,fn)=>{ const e=$('#pane_cb #'+id); if (e) e.onclick=fn; };
+  on('cb-add-cand',()=>addCbCandidate());
+  on('cb-reset-cands',()=>resetCbCandidates());
+  on('cb-round1-btn',()=>computeCbRound1());
+  on('cb-round2-btn',()=>computeCbRound2());
+  $$('#pane_cb .cb-name-input').forEach(inp=>{ inp.onchange=()=>{ setCbCandidateName(inp.getAttribute('data-cand'), inp.value); }; });
+  $$('#pane_cb .cb-num:not(.cb-r2-num)').forEach(inp=>{ inp.onchange=()=>{ setCbCandidateVote(inp.getAttribute('data-cand'), inp.getAttribute('data-group'), inp.value); }; });
+  $$('#pane_cb .cb-r2-num').forEach(inp=>{ inp.onchange=()=>{ setCb2Vote(inp.getAttribute('data-group'), inp.value); }; });
+  $$('#pane_cb .cb-party-btn').forEach(btn=>{ btn.onclick=()=>{ toggleCbPicker(btn.id.replace('cb-party-','')); }; });
+  $$('#pane_cb .cb-picker-close').forEach(btn=>{ btn.onclick=()=>closeCbPicker(); });
+  $$('#pane_cb .cb-picker-row').forEach(row=>{ row.onclick=()=>{ selectCbParty(row.getAttribute('data-cand'), row.getAttribute('data-party')); }; });
+  $$('#pane_cb .cb-del').forEach(btn=>{ btn.onclick=()=>removeCbCandidate(btn.getAttribute('data-cand')); });
+  $$('#pane_cb [data-act="cb-clear-ilce"]').forEach(btn=>{ btn.onclick=()=>clearCbDetailIlce(parseInt(btn.getAttribute('data-rn'),10)); });
+  $$('#pane_cb .cb-dist-trigger').forEach(b=>{ b.addEventListener('click',()=>{ setCbDetailDistTab(parseInt(b.getAttribute('data-rn'),10), b.getAttribute('data-tab')); }); });
+}
+function renderCB(){
+  const pane=$('#pane_cb');
+  if (!pane) return;
+  const cb=cbState();
+  const simOk=cb.res1.length>0;
+  const r2Ok=cb.cands2&&cb.cands2.length>1;
+  const r2resOk=cb.res2.length>0;
+  let html=`<div class="tab-pane-inner">`;
+
+  html+=`<div class="dual">
+    <div class="half"><div class="colstack">
+      <div class="sb-kicker"><div class="bar"></div><div class="t">1. TUR ADAYLARI</div></div>
+      <div class="cb-topbar"><button class="btn-side" id="cb-add-cand">Yeni Aday Ekle</button><button class="btn-side" id="cb-reset-cands">Sıfırla</button></div>
+      <div class="cb-hint">Adayların ideolojik bloklardan alacağı destek oranlarını (%) düzenleyin. Sonucu görmek için alttaki butona basın.</div>
+      <div class="cand-list">${cb.cands1.map(c=>cbCandidateCardHtml(c)).join('')}</div>
+      <button class="btn-calc" id="cb-round1-btn">1. TUR SONUÇLARINI &amp; HARİTASINI HESAPLA</button>
+    </div></div>
+    <div class="half"><div class="colstack">
+      <div class="sb-kicker"><div class="bar"></div><div class="t">1. TUR SONUÇLARI</div></div>
+      ${simOk?cbR1WinnerLine(cb)+`<div class="scroll" style="flex:1;min-height:0;overflow-y:auto">${cb.res1.map(cbBarRowHtml).join('')}</div>`:`<div class="big-note">Aday desteklerini düzenleyip hesapladığınızda 1. tur sonuçları burada görünür.</div>`}
+    </div></div>
+  </div>`;
+
+  if (simOk){
+    html+=`<div class="map-card">
+      <div class="map-card-head">
+        <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">1. TUR HARİTASI</div></div>
+        <div class="map-hint" style="margin:0">İle tıklayın: ilçe bazlı CB sonuçları</div>
+      </div>
+      <div class="map-frame">${cb.mapHtml1||emptyMap()}</div>
+    </div>`;
+    html+=cbDetailSectionHtml(1);
+    html+=`<div class="sb-card shadow section-card">
+      <button class="btn-download" id="cb-dl-1">İNFOGRAFİK İNDİR (PNG)</button>
+      <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
+    </div>`;
+  }
+
+  if (r2Ok){
+    html+=`<div class="sb-card shadow" style="margin-top:16px">
+      <div class="sb-kicker"><div class="bar"></div><div class="t">2. TUR SENARYOSU</div></div>
+      <div style="font-weight:900;color:var(--c-accent-2);font-size:16px;margin:2px 0 2px 0">${esc(cb.r1Top1)} vs ${esc(cb.r1Top2)}</div>
+      <div class="cb-hint">1. Adayın oyunu girdiğinizde, 2. adayın oyu 100'e tamamlanacak şekilde otomatik belirlenir.</div>
+      <div class="cand-list">${cb.cands2.map(c=>cbR2CardHtml(c)).join('')}</div>
+      <button class="btn-calc" id="cb-round2-btn">2. TUR SONUÇLARINI &amp; HARİTASINI HESAPLA</button>
+      ${r2resOk?cbR2ResultsHtml(cb):''}
+    </div>`;
+  }
+
+  html+=`<div class="sb-card shadow section-card" style="margin-top:16px">
+    <div style="font-size:13px;color:var(--c-text-muted)">CB haritalarından bir ile tıklayın; o ilin ilçe bazlı cumhurbaşkanlığı sonuçlarını o turun altında görürsünüz.</div>
+  </div>`;
+
+  html+=`</div>`;
+  pane.innerHTML=html;
+
+  renderSidebar();
+  bindCBEvents();
+
+  if (simOk){ window.setTimeout(()=>{ if ($('#map-wrapper-cb1')) bindMapWrapper('cb1', norm=>selectCbProvince(1, norm)); },30); }
+  if (r2resOk){ window.setTimeout(()=>{ if ($('#map-wrapper-cb2')) bindMapWrapper('cb2', norm=>selectCbProvince(2, norm)); },30); }
+  if (cb.r1.prov) renderCbCityMapAsync(1);
+  if (cb.r2.prov && r2resOk) renderCbCityMapAsync(2);
+}
+function cbR2ResultsHtml(cb){
+  return `<div class="sb-card shadow" style="margin-top:12px">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">2. TUR SONUÇLARI</div></div>
+    ${cb.res2.map(cbBarRowHtml).join('')}
+    <div style="color:#1A8917;font-weight:900;font-size:14px;margin-top:10px">Türkiye'nin Cumhurbaşkanı: ${esc(cb.res2[0]?cb.res2[0].name:'')} (${cb.res2[0]?esc(cb.res2[0].vote_text):''})</div>
+  </div>
+  <div class="map-card">
+    <div class="map-card-head">
+      <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">CUMHURBAŞKANLIĞI HARİTASI (2. TUR)</div></div>
+      <div class="map-hint" style="margin:0">İle tıklayın: ilçe bazlı CB sonuçları</div>
+    </div>
+    <div class="map-frame">${cb.mapHtml2||emptyMap()}</div>
+  </div>
+  ${cbDetailSectionHtml(2)}
+  <div class="sb-card shadow section-card">
+    <button class="btn-download" id="cb-dl-2">İNFOGRAFİK İNDİR (PNG)</button>
+    <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
+  </div>`;
+}
 
 // ---------------- OLASILIK (minimal port) ----------------
 function renderOlasilik(){ $('#pane_538').innerHTML=`<div class="tab-pane-inner"><div class="sb-card shadow"><div class="sb-kicker"><div class="bar"></div><div class="t">OLASILIK MODELİ</div></div><div class="big-note">Olasılık modeli yakında bu alanda çalışacak.</div></div></div>`; }
