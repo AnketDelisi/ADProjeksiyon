@@ -2518,9 +2518,16 @@ function lowessSmooth(pyX, pyY, frac){
 function processPolls(selectedFirms){
   const src=POLLS_RAW;
   if (!src || !selectedFirms || !selectedFirms.length) return null;
-  let df=src.filter(r=>selectedFirms.indexOf(String(r.Firma))>=0);
-  if (!df.length) return null;
-  df=df.map(r=>{
+  const raw=src.filter(r=>selectedFirms.indexOf(String(r.Firma))>=0);
+  if (!raw.length) return null;
+  // party columns present in the raw source rows (all numeric keys except metadata labels)
+  const partyCols=[];
+  {
+    const seen={};
+    for (const r of raw) for (const k of Object.keys(r)){ if (POLL_NON_PARTY_LABELS.indexOf(k)>=0) continue; seen[k]=1; }
+    for (const k of Object.keys(seen)) partyCols.push(k);
+  }
+  let df=raw.map(r=>{
     const o=Object.assign({},r);
     o.Tarih_Formatli=parseTurkishDate(r.Tarih);
     const mae=parseFloat(String(r.MAE==null?'':r.MAE).replace(',','.').trim());
@@ -2533,20 +2540,60 @@ function processPolls(selectedFirms){
   const dateMs=df.filter(r=>r.Tarih_Formatli instanceof Date && !isNaN(r.Tarih_Formatli.getTime())).map(r=>r.Tarih_Formatli.getTime());
   const enGuncelMs=dateMs.length?Math.max.apply(null,dateMs):null;
   const B=Math.log(2)/15.0;
+  const msOf = r => (r.Tarih_Formatli instanceof Date && !isNaN(r.Tarih_Formatli.getTime())) ? r.Tarih_Formatli.getTime() : null;
   for (const r of df){
     let decay=0.5;
-    if (enGuncelMs!==null && r.Tarih_Formatli instanceof Date && !isNaN(r.Tarih_Formatli.getTime())){
-      decay=Math.max(0.1, Math.exp(-B*Math.max(0,(enGuncelMs-r.Tarih_Formatli.getTime())/86400000)));
+    if (enGuncelMs!==null && msOf(r)!==null){
+      decay=Math.max(0.1, Math.exp(-B*Math.max(0,(enGuncelMs-msOf(r))/86400000)));
     }
     r.Decay_Carpani=decay;
-    r['Ağırlık']=r.Temel_Agirlik*decay;
   }
+  // frequency damping: 1/sqrt(n) — polls by the same firm inside a 28-day window
+  const WINDOW_MS=14*86400000;
+  for (const r of df){
+    let n=1;
+    const t=msOf(r);
+    if (t!==null){
+      for (const o of df){
+        if (o===r) continue;
+        const to=msOf(o);
+        if (to!==null && Math.abs(t-to)<=WINDOW_MS) n++;
+      }
+    }
+    r.Frekans_Carpani=1/Math.sqrt(n);
+  }
+  // outlier damping: smooth penalty vs leave-one-out local mean (any firm, same window)
+  for (const r of df){
+    let dev=0;
+    const t=msOf(r);
+    if (t!==null){
+      const neigh=df.filter(o=>o!==r && msOf(o)!==null && Math.abs(t-msOf(o))<=WINDOW_MS);
+      if (neigh.length){
+        for (const p of partyCols){
+          const v=parseFloat(r[p]);
+          if (isNaN(v)) continue;
+          let s=0,cnt=0;
+          for (const o of neigh){
+            const ov=parseFloat(o[p]);
+            if (isNaN(ov)) continue;
+            s+=ov; cnt++;
+          }
+          if (cnt>0){
+            const d=Math.abs(v-(s/cnt));
+            if (d>dev) dev=d;
+          }
+        }
+      }
+    }
+    r.Uc_Carpani=1/(1+Math.max(0,dev-3)/5);
+  }
+  for (const r of df) r['Ağırlık']=r.Temel_Agirlik*r.Decay_Carpani*r.Frekans_Carpani*r.Uc_Carpani;
   const meanW=arrMean(df.map(r=>r['Ağırlık']));
   for (const r of df) r['Influence']= meanW>0? r['Ağırlık']/meanW : 1;
   return df;
 }
 function buildPollTableHtml(df, tabloPartileri){
-  let html="<style>.fte-table { width: 100%; border-collapse: collapse; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #1A1A1A; margin-bottom: 25px; } .fte-table th { text-align: left; padding: 16px 12px; border-bottom: 2px solid #1A1A1A; font-weight: 900; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; color: #71716E; } .fte-table td { padding: 14px 12px; border-bottom: 1px solid #E3E3E3; } .fte-influence-bar-bg { width: 45px; height: 14px; background-color: #F0F0F0; display: inline-block; vertical-align: middle; margin-right: 8px; border-radius: 2px; overflow: hidden; } .fte-influence-bar-fill { height: 100%; background-color: #C9C9C9; } .fte-margin { font-weight: 900; } .fte-table tr:hover { background-color: #FAFAFA; }</style><div style='overflow-x: auto;'><table class='fte-table'><thead><tr><th>Tarih</th><th>Firma</th><th>Ağırlık</th>";
+  let html="<style>.fte-table { width: 100%; border-collapse: collapse; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #1A1A1A; margin-bottom: 25px; } .fte-table th { text-align: left; padding: 16px 12px; border-bottom: 2px solid #1A1A1A; font-weight: 900; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; color: #71716E; } .fte-table td { padding: 14px 12px; border-bottom: 1px solid #E3E3E3; } .fte-influence-bar-bg { width: 45px; height: 14px; background-color: #F0F0F0; display: inline-block; vertical-align: middle; margin-right: 8px; border-radius: 2px; overflow: hidden; } .fte-influence-bar-fill { height: 100%; background-color: #C9C9C9; } .fte-margin { font-weight: 900; } .fte-table tr:hover { background-color: #FAFAFA; }</style><div style='font-size: 11px; color: #71716E; font-weight: 700; margin-bottom: 10px;'>Frekans: aynı firmanın 28 günlük penceredeki anket sayısına göre 1/√n ağırlık azaltması · Uç: diğer anketlerin ortalamasından 3 puan üzeri sapmada yumuşak ceza uygulanır.</div><div style='overflow-x: auto;'><table class='fte-table'><thead><tr><th>Tarih</th><th>Firma</th><th>Frekans</th><th>Uç</th><th>Ağırlık</th>";
   for (const p of tabloPartileri) html += `<th style='color: ${PARTY_COLORS[p]||'#888'}; text-align: center;'>${esc(p)}</th>`;
   html += "<th style='text-align: right;'>Fark</th></tr></thead><tbody>";
   const maxInf=df.length?Math.max.apply(null,df.map(r=>r['Influence'])):0;
@@ -2565,7 +2612,7 @@ function buildPollTableHtml(df, tabloPartileri){
       else { marginText="BAŞA BAŞ"; marginColor="#888"; }
     } else if (sirali.length===1){ marginText=`${sirali[0][0]} +100`; marginColor=PARTY_COLORS[sirali[0][0]]||'#888'; }
     const tarihMetni = String(row.Tarih==null?'-':row.Tarih) + (row.Decay_Carpani<0.25 ? " <span style='font-size:10px; color:#E00000;'>(Eski)</span>" : "");
-    let rowHtml=`<tr><td style='color: #71716E;'>${tarihMetni}</td><td style='font-weight: 900;'>${esc(row.Firma)}</td><td><div class='fte-influence-bar-bg'><div class='fte-influence-bar-fill' style='width: ${wPct.toFixed(1)}%;'></div></div><span style='font-weight: 700; color: #71716E;'>${row['Influence'].toFixed(2)}</span></td>`;
+    let rowHtml=`<tr><td style='color: #71716E;'>${tarihMetni}</td><td style='font-weight: 900;'>${esc(row.Firma)}</td><td style='color: #71716E; font-weight: 700;'>${(row.Frekans_Carpani||1).toFixed(2)}</td><td style='color: #71716E; font-weight: 700;'>${(row.Uc_Carpani||1).toFixed(2)}</td><td><div class='fte-influence-bar-bg'><div class='fte-influence-bar-fill' style='width: ${wPct.toFixed(1)}%;'></div></div><span style='font-weight: 700; color: #71716E;'>${row['Influence'].toFixed(2)}</span></td>`;
     for (const p of tabloPartileri) rowHtml += `<td style='color: ${PARTY_COLORS[p]||'#888'}; text-align: center; font-weight: 900;'>%${((row[p]==null||isNaN(row[p]))?0:row[p]).toFixed(1)}</td>`;
     html += rowHtml + `<td class='fte-margin' style='color: ${marginColor}; text-align: right;'>${marginText}</td></tr>`;
   }
