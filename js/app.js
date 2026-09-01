@@ -504,10 +504,16 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
     if (parties.length>=1){ entities[aly]=[...parties]; for (const p of parties) entityOf[p]=aly; }
   }
   for (const p of allParties()){ if (!entityOf[p]){ entities[p]=[p]; entityOf[p]=p; } }
-  // Global (nationwide) winning entity: one color scheme for the whole map.
+  // One representative color per entity, chosen globally (nationwide leader party),
+  // so each alliance has a single consistent color across the whole map.
   const natVotesAll={};
   for (const r of df) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
-  const globalWinEnt = mp ? null : entityWin(entities, natVotesAll);
+  const globalReps={};
+  for (const e of Object.keys(entities)){
+    let rep=null;
+    for (const p of entities[e]){ if (!rep || (natVotesAll[p]||0)>(natVotesAll[rep]||0)) rep=p; }
+    globalReps[e]=rep;
+  }
   const refMin = mp?0:65;
   const byProv={}, byDist={};
   for (const r of df){ (byProv[r.province]=byProv[r.province]||[]).push(r); (byDist[r.d]=byDist[r.d]||[]).push(r); }
@@ -521,9 +527,9 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
     if (mp){ const [fp,c]=mpRegionColor(agg); colorKey=fp; col=c; customColors[nrm]=col; }
     else {
       const regVotes={}; for (const o of agg) regVotes[o.party]=o.pct;
-      const winEnt=globalWinEnt;
+      const winEnt=entityWin(entities, regVotes);
       const winCount=winEnt?entitySum(winEnt, entities, regVotes):0;
-      colorKey=winEnt?colorKeyForEntity(winEnt, regVotes, entities, alliances):'#888';
+      colorKey=winEnt?globalReps[winEnt]:'#888';
       const intensity=winCount?clamp(Math.max(0.25,Math.min(1.0,winCount/refMin)),0,1):0.25;
       col=get_heatmap_color(PARTY_COLORS[colorKey]||'#888888', intensity);
       customColors[nrm]=col;
@@ -544,9 +550,9 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
       distWinners[nd]=colorKey; customColors[nd]=col;
     } else {
       const regVotes={}; for (const o of agg) regVotes[o.party]=o.pct;
-      const winEnt=globalWinEnt;
+      const winEnt=entityWin(entities, regVotes);
       const winCount=winEnt?entitySum(winEnt, entities, regVotes):0;
-      colorKey=winEnt?colorKeyForEntity(winEnt, regVotes, entities, alliances):'#888';
+      colorKey=winEnt?globalReps[winEnt]:'#888';
       const intensity=winCount?clamp(Math.max(0.25,Math.min(1.0,winCount/refMin)),0,1):0.25;
       const col2=get_heatmap_color(PARTY_COLORS[colorKey]||'#888888', intensity);
       distWinners[nd]=colorKey; customColors[nd]=col2;
@@ -613,7 +619,7 @@ function renderColoredSvg(rawSvg, o){
 
   // fix header
   const RE_HEADER_VB=/viewBox=["']([\-\d\.\s,]+)["']/i;
-  const RE_HEADER_CLEAN=/\b(width|height|style)=["'][^"']*["']/;
+  const RE_HEADER_CLEAN_G=/\b(width|height|style)=["'][^"']*["']/g;
   svgContent = svgContent.replace(/<svg\b[^>]*>/, function(m){
     let header=m;
     if (header.indexOf('viewBox')<0 && /width=["']([\d\.]+)px["']/.test(header) && /height=["']([\d\.]+)px["']/.test(header)){
@@ -630,7 +636,7 @@ function renderColoredSvg(rawSvg, o){
         header=header.replace(vbm[0],`viewBox="${vx-pad} ${vy-pad} ${vw+pad*2} ${vh+pad*2}"`);
       }
     }
-    header=header.replace(RE_HEADER_CLEAN,'');
+    header=header.replace(RE_HEADER_CLEAN_G,'');
     const suffix=' width="100%" height="100%" overflow="visible" style="max-width: 100%; max-height: 100%; object-fit: contain;">';
     return header.endsWith('/>') ? header.slice(0,-2)+suffix : header.slice(0,-1)+suffix;
   });
@@ -882,6 +888,10 @@ function renderMeclis(){
   if (infBtn) infBtn.onclick=()=>downloadNationalInfographic();
   const mecIlBtn=$('#btn-mec-il-info');
   if (mecIlBtn) mecIlBtn.onclick=()=>downloadMecIlInfographic();
+  $$('#pane_genel .dist-nav-trigger').forEach(b=>b.addEventListener('click',()=>{
+    state.detailActiveTab=b.getAttribute('data-tab');
+    renderMeclis();
+  }));
 }
 
 function summaryRowsHtml(){
@@ -1341,11 +1351,6 @@ function renderDetailProvince(prov, provDf, provDistricts, barsMap){
   });
   // bars section HTML rendered in renderMeclis via detailSectionHtml using state
   renderMeclis();
-  // re-bind tab triggers
-  $$('.dist-nav-trigger').forEach(b=>b.addEventListener('click',()=>{
-    state.detailActiveTab=b.getAttribute('data-tab');
-    renderMeclis();
-  }));
 }
 
 function renderCityMap(prov, cityData, svgText){
@@ -1392,8 +1397,14 @@ function renderCityMap(prov, cityData, svgText){
       for (const p of allP){ if (!entOf[p]){ ents[p]=[p]; entOf[p]=p; } }
       const natVotesAll={};
       for (const r of cityRes) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
-      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,natVotesAll)-entitySum(a,ents,natVotesAll))[0]:null;
-      const colorKey=winEnt?colorKeyForEntity(winEnt,dpcts,ents,ilsAlliances):'#888';
+      const cityReps={};
+      for (const e of Object.keys(ents)){
+        let rep=null;
+        for (const p of ents[e]){ if (!rep || (natVotesAll[p]||0)>(natVotesAll[rep]||0)) rep=p; }
+        cityReps[e]=rep;
+      }
+      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,dpcts)-entitySum(a,ents,dpcts))[0]:null;
+      const colorKey=winEnt?cityReps[winEnt]:'#888';
       wParty=colorKey; dCol=PARTY_COLORS[colorKey]||'#888';
     } else {
       wParty=top[0].p;
@@ -2182,7 +2193,10 @@ async function fetchLogoInner(party){
     const txt = await fetch(logoURL(party)).then(r=>r.ok?r.text():'');
     const m = /<svg\b[^>]*>([\s\S]*?)<\/svg>/i.exec(txt);
     if (!m){ LOGO_INNER_CACHE[party]=''; return ''; }
-    let inner = m[1].replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'').replace(/<sodipodi:[^>]*\/?>/g,'');
+    let inner = m[1]
+      .replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'')
+      .replace(/<sodipodi:[^>]*\/?>/g,'')
+      .replace(/\s(?:inkscape|sodipodi):[a-zA-Z-]+="[^"]*"/g,'');
     const vbm = /viewBox\s*=\s*"([^"]+)"/.exec(txt);
     const res = {inner, vb: vbm?vbm[1]:'0 0 64 64'};
     LOGO_INNER_CACHE[party]=res;
@@ -2191,12 +2205,19 @@ async function fetchLogoInner(party){
 }
 function inlineLogoSvg(li, x, y, size){
   if (!li || !li.inner) return '';
-  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="${li.vb}" preserveAspectRatio="xMidYMid meet" overflow="visible" xmlns="http://www.w3.org/2000/svg">${li.inner}</svg>`;
+  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="${li.vb}" preserveAspectRatio="xMidYMid meet" overflow="visible" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd">${li.inner}</svg>`;
 }
 function cleanMapForInfographic(html){
   let m = String(html).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<style[\s\S]*?<\/style>/g,'');
   const im = /<svg\b[^>]*>[\s\S]*?<\/svg>/i.exec(m);
-  return im?im[0]:m;
+  if (!im) return m;
+  return im[0].replace(/<svg\b[^>]*>/, function(tag){
+    return tag
+      .replace(/\b(width|height)=["'][^"']*["']/g,'')
+      .replace(/\bstyle=(["'])[^"']*\1/, '')
+      .replace(/\boverflow=(["'])[^"']*\1/, '')
+      .replace(/\s*\/?>$/, ' overflow="visible">');
+  });
 }
 async function appLogoInline(x, y, width, height){
   try{
@@ -2204,10 +2225,13 @@ async function appLogoInline(x, y, width, height){
     if (!txt) return '';
     const m = /<svg\b[^>]*>([\s\S]*?)<\/svg>/i.exec(txt);
     if (!m) return '';
-    const inner = m[1].replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'').replace(/<sodipodi:[^>]*\/?>/g,'');
+    let inner = m[1]
+      .replace(/<sodipodi:namedview\b[^>]*>[\s\S]*?<\/sodipodi:namedview>/g,'')
+      .replace(/<sodipodi:[^>]*\/?>/g,'')
+      .replace(/\s(?:inkscape|sodipodi):[a-zA-Z-]+="[^"]*"/g,'');
     const vbm = /viewBox\s*=\s*"([^"]+)"/.exec(txt);
     const vb = vbm?vbm[1]:'0 0 300 34';
-    return `<svg x="${x}" y="${y}" width="${width}" height="${height}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" overflow="visible">${inner}</svg>`;
+    return `<svg x="${x}" y="${y}" width="${width}" height="${height}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" overflow="visible" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd">${inner}</svg>`;
   }catch(e){ return ''; }
 }
 // renders the colored Turkey map used inside infographics (no tooltips/badges)
