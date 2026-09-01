@@ -2472,8 +2472,8 @@ async function downloadCbIlInfographic(rn){
 // ---------------- YEREL SEÇİM (il bazlı yerel model) ----------------
 // 2024 tabanı + ulusal senaryo girdisi üzerinden logit swing, il bazlı büyük/minör
 // ayrımı ve blok çekim akışı (CB mekaniğine benzer) ile belediye başkanı tahmini.
-// Parti güç ayarı: CHP ve A hafifçe zayıflatılır (yerel dinamikler).
-const YEREL_NERF = {'CHP':0.90, 'A':0.75};
+// Parti güç ayarı: AKP ve CHP hafifçe zayıflatılır; MHP ve BBP hafifçe güçlendirilir; A daha sert zayıflatılır.
+const YEREL_NERF = {'AKP':0.95, 'CHP':0.90, 'A':0.75, 'MHP':1.05, 'BBP':1.05};
 const YEREL_MATRIX_DEFAULTS = {
   'AKP':   {'AKP':1.0,'YENI':0.0,'DEM':0.0,'Cumhur':0.85,'Milliyetçi Muh.':0.30,'Sol Muh.':0.0,'Muhafazakar Muh.':0.60},
   'YENI':  {'AKP':0.0,'YENI':1.0,'DEM':0.35,'Cumhur':0.0,'Milliyetçi Muh.':0.25,'Sol Muh.':0.65,'Muhafazakar Muh.':0.10},
