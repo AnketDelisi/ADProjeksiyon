@@ -16,7 +16,6 @@ let ILCE_NAMES = null;          // ilce_names.json {provinces:{p|i:name}, global
 let SVG_TURKIYE2 = "";          // turkiye2.svg raw (province-level map)
 let YEREL_2024 = null;          // yerel_2024.json {provinces:{p:{party:pct}}, nat, winners}
 let BUYUKSEHIR = {};            // set of büyükşehir province norm ids
-let YEREL_TARGETS = null;       // yerel_targets.json: alias (YENI->CHP) winner scoring; defections baked into base at generation
 let BELEDIYE_MECLIS = null;     // belediye_meclis.json {provNorm: councilSeats}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
 const ILCE_SVG_CACHE = {};      // prov -> raw svg
@@ -2475,23 +2474,13 @@ async function downloadCbIlInfographic(rn){
 // Parti güç ayarı: 2024 geri testinde doğruluğu düşürdüğü için kaldırıldı (kazanan %85->%88).
 const YEREL_NERF = {};
 const YEREL_MATRIX_DEFAULTS = {
-  'AKP':   {'AKP':1.0,'YENI':0.0,'DEM':0.0,'Cumhur':0.85,'Milliyetçi Muh.':0.30,'Sol Muh.':0.0,'Muhafazakar Muh.':0.60},
-  'YENI':  {'AKP':0.0,'YENI':1.0,'DEM':0.35,'Cumhur':0.0,'Milliyetçi Muh.':0.25,'Sol Muh.':0.65,'Muhafazakar Muh.':0.10},
-  'DEM':   {'AKP':0.0,'YENI':0.45,'DEM':1.0,'Cumhur':0.0,'Milliyetçi Muh.':0.10,'Sol Muh.':0.55,'Muhafazakar Muh.':0.0},
-  'MHP':   {'AKP':0.80,'YENI':0.0,'DEM':0.0,'Cumhur':1.0,'Milliyetçi Muh.':0.35,'Sol Muh.':0.0,'Muhafazakar Muh.':0.55},
-  'BBP':   {'AKP':0.85,'YENI':0.0,'DEM':0.0,'Cumhur':0.90,'Milliyetçi Muh.':0.20,'Sol Muh.':0.0,'Muhafazakar Muh.':0.50},
-  'HUDA':  {'AKP':0.80,'YENI':0.0,'DEM':0.0,'Cumhur':0.90,'Milliyetçi Muh.':0.15,'Sol Muh.':0.0,'Muhafazakar Muh.':0.45},
-  'IYI':   {'AKP':0.25,'YENI':0.35,'DEM':0.15,'Cumhur':0.20,'Milliyetçi Muh.':1.0,'Sol Muh.':0.20,'Muhafazakar Muh.':0.10},
-  'ZAFER': {'AKP':0.30,'YENI':0.20,'DEM':0.0,'Cumhur':0.30,'Milliyetçi Muh.':0.90,'Sol Muh.':0.0,'Muhafazakar Muh.':0.15},
-  'A':     {'AKP':0.20,'YENI':0.40,'DEM':0.15,'Cumhur':0.10,'Milliyetçi Muh.':0.85,'Sol Muh.':0.20,'Muhafazakar Muh.':0.10},
-  'BTP':   {'AKP':0.20,'YENI':0.30,'DEM':0.10,'Cumhur':0.15,'Milliyetçi Muh.':0.70,'Sol Muh.':0.15,'Muhafazakar Muh.':0.20},
-  'DP':    {'AKP':0.25,'YENI':0.30,'DEM':0.10,'Cumhur':0.20,'Milliyetçi Muh.':0.75,'Sol Muh.':0.10,'Muhafazakar Muh.':0.20},
-  'TIP':   {'AKP':0.0,'YENI':0.70,'DEM':0.50,'Cumhur':0.0,'Milliyetçi Muh.':0.05,'Sol Muh.':1.0,'Muhafazakar Muh.':0.0},
-  'TKP':   {'AKP':0.0,'YENI':0.70,'DEM':0.50,'Cumhur':0.0,'Milliyetçi Muh.':0.05,'Sol Muh.':1.0,'Muhafazakar Muh.':0.0},
-  'CHP':   {'AKP':0.0,'YENI':0.70,'DEM':0.55,'Cumhur':0.0,'Milliyetçi Muh.':0.10,'Sol Muh.':1.0,'Muhafazakar Muh.':0.0},
-  'SAADET':{'AKP':0.50,'YENI':0.10,'DEM':0.0,'Cumhur':0.35,'Milliyetçi Muh.':0.10,'Sol Muh.':0.0,'Muhafazakar Muh.':1.0},
-  'YRP':   {'AKP':0.45,'YENI':0.10,'DEM':0.0,'Cumhur':0.45,'Milliyetçi Muh.':0.15,'Sol Muh.':0.0,'Muhafazakar Muh.':1.0},
-  'DEVA':  {'AKP':0.35,'YENI':0.30,'DEM':0.10,'Cumhur':0.25,'Milliyetçi Muh.':0.30,'Sol Muh.':0.15,'Muhafazakar Muh.':0.85}
+  'AKP':  {'AKP':1.0,'YENI':0.0,'DEM':0.0,'MHP':0.80,'BBP':0.85,'HUDA':0.80,'IYI':0.25,'ZAFER':0.30,'A':0.20,'BTP':0.20,'DP':0.25,'TIP':0.0,'TKP':0.0,'CHP':0.0,'SAADET':0.50,'YRP':0.45,'DEVA':0.35},
+  'YENI': {'AKP':0.0,'YENI':1.0,'DEM':0.45,'MHP':0.0,'BBP':0.0,'HUDA':0.0,'IYI':0.35,'ZAFER':0.20,'A':0.40,'BTP':0.30,'DP':0.30,'TIP':0.70,'TKP':0.70,'CHP':0.70,'SAADET':0.10,'YRP':0.10,'DEVA':0.30},
+  'DEM':  {'AKP':0.0,'YENI':0.35,'DEM':1.0,'MHP':0.0,'BBP':0.0,'HUDA':0.0,'IYI':0.15,'ZAFER':0.0,'A':0.15,'BTP':0.10,'DP':0.10,'TIP':0.50,'TKP':0.50,'CHP':0.55,'SAADET':0.0,'YRP':0.0,'DEVA':0.10},
+  'Cumhur': {'AKP':0.85,'YENI':0.0,'DEM':0.0,'MHP':1.0,'BBP':0.90,'HUDA':0.90,'IYI':0.20,'ZAFER':0.30,'A':0.10,'BTP':0.15,'DP':0.20,'TIP':0.0,'TKP':0.0,'CHP':0.0,'SAADET':0.35,'YRP':0.45,'DEVA':0.25},
+  'Milliyetçi Muh.': {'AKP':0.30,'YENI':0.25,'DEM':0.10,'MHP':0.35,'BBP':0.20,'HUDA':0.15,'IYI':1.0,'ZAFER':0.90,'A':0.85,'BTP':0.70,'DP':0.75,'TIP':0.05,'TKP':0.05,'CHP':0.10,'SAADET':0.10,'YRP':0.15,'DEVA':0.30},
+  'Sol Muh.': {'AKP':0.0,'YENI':0.65,'DEM':0.55,'MHP':0.0,'BBP':0.0,'HUDA':0.0,'IYI':0.10,'ZAFER':0.0,'A':0.20,'BTP':0.15,'DP':0.10,'TIP':1.0,'TKP':1.0,'CHP':1.0,'SAADET':0.0,'YRP':0.0,'DEVA':0.15},
+  'Muhafazakar Muh.': {'AKP':0.60,'YENI':0.10,'DEM':0.0,'MHP':0.55,'BBP':0.50,'HUDA':0.45,'IYI':0.10,'ZAFER':0.15,'A':0.10,'BTP':0.20,'DP':0.20,'TIP':0.0,'TKP':0.0,'CHP':0.0,'SAADET':1.0,'YRP':1.0,'DEVA':0.85}
 };
 function yerelBlocs(){
   const out={};
@@ -2526,10 +2515,11 @@ function runLocal(){
   const flowRate=clamp(Number.isFinite(parseFloat(state.yerelFlow))?parseFloat(state.yerelFlow):25,0,80)/100;
   const matrix=yerelMatrix();
   const blocs=yerelBlocs();
-  // synthesized national reference: breakoffs added on top of official 2024 (no deduction)
+  // synthesized national reference: breakoffs added on top of official 2024 (no deduction);
+  // only when the user scenario actually includes the new party (2024 replay: none -> no pollution)
   const synthNat=(()=>{
     const n=Object.assign({}, YEREL_2024.nat||{});
-    const mk=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(n[s]||0)*row[s]/100; } n[p]=(n[p]||0)+g; };
+    const mk=(p)=>{ if (!(un[p]||0)>0) return; const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(n[s]||0)*row[s]/100; } n[p]=(n[p]||0)+g; };
     mk('YENI'); mk('A');
     const t=Object.values(n).reduce((a,b)=>a+b,0);
     for (const k of Object.keys(n)) n[k]=t>0?n[k]/t*100:0;
@@ -2540,7 +2530,7 @@ function runLocal(){
   for (const prov of Object.keys(YEREL_2024.provinces)){
     // synthesized per-province base: 2024 results + breakoff parties added on top (no deduction)
     const base=Object.assign({}, YEREL_2024.provinces[prov]);
-    const mkB=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(base[s]||0)*row[s]/100; } base[p]=(base[p]||0)+g; };
+    const mkB=(p)=>{ if (!((un[p]||0)>0)) return; const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(base[s]||0)*row[s]/100; } base[p]=(base[p]||0)+g; };
     mkB('YENI'); mkB('A');
     const bT=Object.values(base).reduce((a,b)=>a+b,0);
     for (const k of Object.keys(base)) base[k]=bT>0?base[k]/bT*100:0;
@@ -2674,11 +2664,9 @@ function runLocal(){
       incumbent:YEREL_2024.winners[prov]||''};
   }
   const counts={}, bigCounts={};
-  const alias=(YEREL_TARGETS&&YEREL_TARGETS.alias)||{};
   for (const prov of Object.keys(out)){
-    const w=alias[out[prov].winner]||out[prov].winner;
-    counts[w]=(counts[w]||0)+1;
-    if (out[prov].big) bigCounts[w]=(bigCounts[w]||0)+1;
+    counts[out[prov].winner]=(counts[out[prov].winner]||0)+1;
+    if (out[prov].big) bigCounts[out[prov].winner]=(bigCounts[out[prov].winner]||0)+1;
   }
   state.yerelResults={provs:out, counts, bigCounts, ts:Date.now()};
 }
@@ -2893,7 +2881,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı sonuçları (büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %94 kazanan il (varsayılan ayar); ortalama oy payı hatası ~1.4 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı sonuçları (büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %100 kazanan il (varsayılan ayar); ortalama oy payı hatası ~0.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
@@ -2935,7 +2923,7 @@ function yerelMatrixHtml(){
   const major=yerelMajorParties();
   const blocs=CB_GROUP_LIST.slice();
   for (const p of Object.keys(state.customPartiesDef||{})) if (blocs.indexOf(p)<0) blocs.push(p);
-  const parties=Object.keys(matrix).filter(p=>major.includes(p));
+  const parties=major.slice();
   let html=`<div class="sb-card shadow" style="margin-bottom:12px">
     <div class="sb-collapse-head" data-key="yerelMatrix">
       <div class="ttl"><div class="bar"></div><div class="t">BLOK ÇEKİM MATRİSİ</div></div>
@@ -2945,7 +2933,7 @@ function yerelMatrixHtml(){
       <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları (%). Sütunlar herhangi bir ilde ana aday olan büyük partilerdir; çalışma anında blok başına normalize edilir.</div>
       <div style="overflow-x:auto;"><table class="conf-table" style="min-width:720px;"><thead><tr><th>Blok</th>${parties.map(p=>`<th style="text-align:center;color:${PARTY_COLORS[p]||'#888'};">${esc(p)}</th>`).join('')}</tr></thead><tbody>
         ${blocs.map(b=>`<tr><td style="font-weight:900;font-size:11px;color:#1A1A1A;">${esc(b)}</td>${parties.map(p=>{
-          const v=(matrix[p]&&matrix[p][b])||0;
+          const v=(matrix[b]&&matrix[b][p])||0;
           return `<td style="text-align:center;"><input class="yerel-mx" data-party="${esc(p)}" data-bloc="${esc(b)}" type="number" min="0" max="100" step="1" value="${Math.round(v*100)}" style="width:56px;height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;"></td>`;
         }).join('')}</tr>`).join('')}
       </tbody></table></div>
@@ -3000,9 +2988,10 @@ function renderYerel(){
     inp.onchange=()=>{
       const m=yerelMatrix();
       const p=inp.getAttribute('data-party'), b=inp.getAttribute('data-bloc');
-      if (!m[p]) m[p]={};
-      m[p][b]=clamp(parseFloat(inp.value)||0,0,100)/100;
+      if (!m[b]) m[b]={};
+      m[b][p]=clamp(parseFloat(inp.value)||0,0,100)/100;
       state.yerelMatrix=m;
+      renderYerel();
     };
   });
   const mw=$('#map-wrapper-yerel');
@@ -3763,7 +3752,7 @@ function renderOlasilik(){
 // ================= boot =================
 async function boot(){
   bindSegNav();
-  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, ytargets, meclis] = await Promise.all([
+  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, meclis] = await Promise.all([
     fetch('data/base_years.json').then(r=>r.json()),
     fetch('data/districts.json').then(r=>r.json()),
     fetch('data/turkiye.svg').then(r=>r.text()),
@@ -3772,7 +3761,6 @@ async function boot(){
     fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
     fetch('data/yerel_2024_merkez.json').then(r=>r.json()).catch(()=>null),
     fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
-    fetch('data/yerel_targets.json').then(r=>r.json()).catch(()=>null),
     fetch('data/belediye_meclis.json').then(r=>r.json()).catch(()=>null)
   ]);
   YEARS=yrs; DISTRICTS=dists; SVG_TURKIYE=cleanSvgString(svg);
@@ -3781,7 +3769,6 @@ async function boot(){
   SVG_TURKIYE2=cleanSvgString(svg2);
   YEREL_2024=yerel;
   BUYUKSEHIR={}; for (const b of big) BUYUKSEHIR[String(b).toLowerCase()]=1;
-  YEREL_TARGETS=ytargets;
   BELEDIYE_MECLIS=meclis;
   POLLS_RAW=polls||[];
   const seen={}; FIRM_NAMES_JS=[];
