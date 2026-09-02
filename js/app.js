@@ -2541,14 +2541,30 @@ function runLocal(){
       const Rc=clamp(R,0.001,99.999), Bcc=clamp(Bc,0.005,99.999), Pcc=clamp(Pc,0.001,99.999);
       const logitDiff=clamp(Math.log(Pcc/(100-Pcc))-Math.log(Bcc/(100-Bcc)),-5,5);
       const Pprop=sig(Math.log(Rc/(100-Rc))+logitDiff);
-      const Puni=Math.max(R*0.05, R+(Pc-Bc));
-      swinged[p]=Math.sqrt(Math.max(0.001,Pprop)*Math.max(0.001,Puni));
+      if (Pcc<Bcc){
+        // collapsing party (national support below 2024): same geometric-mean scale as the
+        // grow branch, but anchored to the national ratio (R*Pc/Bc) instead of the additive
+        // loyalist floor — a 1% national party really collapses (~1%) instead of ~10%
+        const ratio=Math.max(0.01, Pc/Math.max(0.01,Bc));
+        const Puni=Math.max(R*0.05, R*ratio);
+        swinged[p]=Math.sqrt(Math.max(0.001,Pprop)*Math.max(0.001,Puni));
+      } else {
+        const Puni=Math.max(R*0.05, R+(Pc-Bc));
+        swinged[p]=Math.sqrt(Math.max(0.001,Pprop)*Math.max(0.001,Puni));
+      }
     }
     const tS=Object.values(swinged).reduce((a,b)=>a+b,0);
     for (const p of keys) swinged[p]=tS>0?swinged[p]/tS*100:0;
-    // blend with 2024 base (default taban ağırlığı %30)
+    // blend with 2024 base (default taban ağırlığı %30).
+    // Base weight is scaled per party by national presence (Pc/Bc): a party with little
+    // national support cannot anchor to its full 2024 structure; Pc=0 parties are excluded.
     const final0={};
-    for (const p of keys) final0[p]=w24*(base[p]||0)+(1-w24)*(swinged[p]||0);
+    for (const p of keys){
+      const Bc=synthNat[p]||0;
+      const presence=Bc>0?clamp((un[p]||0)/Bc,0,1):1;
+      const wEff=w24*presence;
+      final0[p]=wEff*(base[p]||0)+(1-wEff)*(swinged[p]||0);
+    }
     const tF=Object.values(final0).reduce((a,b)=>a+b,0);
     for (const p of keys) final0[p]=tF>0?final0[p]/tF*100:0;
     // candidate layer: personal vote (aday etkisi) — running: add to own party;
