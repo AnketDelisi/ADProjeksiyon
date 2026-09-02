@@ -2472,8 +2472,8 @@ async function downloadCbIlInfographic(rn){
 // ---------------- YEREL SEÇİM (il bazlı yerel model) ----------------
 // 2024 tabanı + ulusal senaryo girdisi üzerinden logit swing, il bazlı büyük/minör
 // ayrımı ve blok çekim akışı (CB mekaniğine benzer) ile belediye başkanı tahmini.
-// Parti güç ayarı: AKP ve CHP hafifçe zayıflatılır; MHP ve BBP hafifçe güçlendirilir; A daha sert zayıflatılır.
-const YEREL_NERF = {'AKP':0.95, 'CHP':0.90, 'A':0.75, 'BBP':1.05};
+// Parti güç ayarı: 2024 geri testinde doğruluğu düşürdüğü için kaldırıldı (kazanan %85->%88).
+const YEREL_NERF = {};
 const YEREL_MATRIX_DEFAULTS = {
   'AKP':   {'AKP':1.0,'YENI':0.0,'DEM':0.0,'Cumhur':0.85,'Milliyetçi Muh.':0.30,'Sol Muh.':0.0,'Muhafazakar Muh.':0.60},
   'YENI':  {'AKP':0.0,'YENI':1.0,'DEM':0.35,'Cumhur':0.0,'Milliyetçi Muh.':0.25,'Sol Muh.':0.65,'Muhafazakar Muh.':0.10},
@@ -2893,7 +2893,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 YSK il meclis sonuçları + belediye başkanı verisi karışımı (%50/%50; büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024, taban %100): %89. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı + il meclis sonuçları karışımı (%80 başkan / %20 meclis; büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %90 kazanan il (varsayılan ayar), taban %100'de %97; ortalama oy payı hatası ~1.4 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){

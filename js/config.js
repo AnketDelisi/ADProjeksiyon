@@ -34,7 +34,8 @@ const PARLIAMENT_ORDER = ["TKP","TIP","DEM","CHP","YENI","IYI","DP","SAADET","DE
 
 const PREDEFINED_SCENARIOS = {
   "2023 Genel Seçim Sonuçları": {'AKP':35.6,'CHP':25.3,'MHP':10.1,'IYI':9.7,'DEM':8.8,'YRP':2.8,'ZAFER':2.2,'TIP':1.8,'BBP':1.0,'SAADET':0.0,'YENI':0.0,'A':0.0,'HUDA':0.0,'TKP':0.1,'DP':0.0,'DEVA':0.0,'BTP':0.0},
-  "2024 Yerel Seçim Sonuçları": {'AKP':32.4,'CHP':34.5,'MHP':6.6,'IYI':4.6,'DEM':5.8,'YRP':7.0,'ZAFER':2.4,'TIP':0.6,'YENI':0.0,'A':0.0,'HUDA':0.7,'DEVA':0.5,'BTP':0.4,'DP':0.3,'TKP':0.2},
+  "2024 Belediye Meclis Seçimi Sonuçları": {'AKP':32.4,'CHP':34.5,'MHP':6.6,'IYI':4.6,'DEM':5.8,'YRP':7.0,'ZAFER':2.4,'TIP':0.6,'YENI':0.0,'A':0.0,'HUDA':0.7,'DEVA':0.5,'BTP':0.4,'DP':0.3,'TKP':0.2},
+  "2024 Yerel Seçim Sonuçları": {'AKP':35.5,'CHP':37.8,'MHP':5.0,'IYI':3.8,'DEM':5.7,'YRP':6.2,'ZAFER':1.7,'TIP':0.2,'YENI':0.0,'A':0.0,'HUDA':0.6,'DEVA':0.3,'BTP':0.2,'DP':0.2,'TKP':0.1,'BBP':0.4,'SAADET':1.1},
   "Anket Delisi Projeksiyon": {'AKP':28.5,'CHP':1.0,'MHP':7.3,'DEM':8.0,'IYI':5.1,'YRP':3.7,'ZAFER':2.5,'TIP':1.5,'YENI':34.4,'A':4.2,'BBP':1.0,'SAADET':1.2,'HUDA':0.6,'DP':0.2,'DEVA':0.3,'BTP':0.4,'TKP':0.1}
 };
 
