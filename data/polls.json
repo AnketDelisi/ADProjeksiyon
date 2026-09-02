@@ -1,14 +1,17 @@
 [
     {"Firma": "Areda", "Tarih": "Temmuz 2026", "MAE": 2.23, "AKP": 35.3, "YENI": 16.6, "DEM": 9.7, "MHP": 8.7, "IYI": 5.6, "YRP": 2.4, "A": 3.7, "ZAFER": 3.6, "TIP": 0.0, "SAADET": 0.0, "CHP": 12.2, "BBP": 0.0}, 
     {"Firma": "SONAR", "Tarih": "25 Temmuz - 1 Ağustos 2026", "MAE": 1.8, "AKP": 30.2, "YENI": 34.3, "DEM": 8.5, "MHP": 5.1, "IYI": 7.0, "YRP": 1.6, "A": 2.6, "ZAFER": 2.3, "TIP": 0.0, "SAADET": 0.0, "CHP": 5.0, "BBP": 1.3},
-    {"Firma": "SONAR", "Tarih": "Haziran 2026", "MAE": 1.8, "AKP": 30.3, "YENI": 0, "DEM": 13, "MHP": 10.7, "IYI": 12.7, "YRP": 1.3, "A": 4.4, "ZAFER": 5.6, "TIP": 0.0, "SAADET": 0.0, "CHP": 13.1, "BBP": 1.2},  
+    {"Firma": "SONAR", "Tarih": "Haziran 2026", "MAE": 1.8, "AKP": 30.3, "YENI": 0, "DEM": 13, "MHP": 10.7, "IYI": 12.7, "YRP": 1.3, "A": 4.4, "ZAFER": 5.6, "TIP": 0.0, "SAADET": 0.0, "CHP": 13.1, "BBP": 1.2},
+    {"Firma": "SONAR", "Tarih": "Nisan 2026", "MAE": 1.8, "AKP": 32.3, "YENI": 0, "DEM": 9.9, "MHP": 7.2, "IYI": 6.1, "YRP": 2.7, "A": 3.3, "ZAFER": 3.3, "TIP": 1.2, "SAADET": 0.0, "CHP": 31.4, "BBP": 1.5},  
     {"Firma": "KONTAK", "Tarih": "10-14 Temmuz 2026", "MAE": 1.11, "AKP": 28.0, "YENI": 34.5, "DEM": 7.0, "MHP": 8.0, "IYI": 5.5, "YRP": 3.0, "A": 4.5, "ZAFER": 3.5, "TIP": 0.0, "SAADET": 0.0, "CHP": 3.5, "BBP": 0.0}, 
     {"Firma": "Gündemar", "Tarih": "28-31 Temmuz 2026", "MAE": 0.0, "AKP": 27.4, "YENI": 38.6, "DEM": 7.6, "MHP": 5.2, "IYI": 4.6, "YRP": 3.1, "A": 2.2, "ZAFER": 5.5, "TIP": 0.6, "SAADET": 0.0, "CHP": 2.9, "BBP": 0.0},
     {"Firma": "Gündemar", "Tarih": "24-27 Haziran 2026", "MAE": 0.0, "AKP": 31.2, "YENI": 0, "DEM": 8.2, "MHP": 5.9, "IYI": 7.3, "YRP": 3.9, "A": 3.7, "ZAFER": 6.1, "TIP": 2.6, "SAADET": 0.0, "CHP": 27.9, "BBP": 0.0},
     {"Firma": "Gündemar", "Tarih": "24-27 Mayıs 2026", "MAE": 0.0, "AKP": 28.1, "YENI": 0, "DEM": 8.4, "MHP": 6.1, "IYI": 6.3, "YRP": 3.5, "A": 4.2, "ZAFER": 6.5, "TIP": 1.5, "SAADET": 0.0, "CHP": 31.9, "BBP": 0.0},
+    {"Firma": "Gündemar", "Tarih": "23-26 Nisan 2026", "MAE": 0.0, "AKP": 28.6, "YENI": 0, "DEM": 8.6, "MHP": 7.4, "IYI": 5.2, "YRP": 2, "A": 3.1, "ZAFER": 5, "TIP": 0.8, "SAADET": 0.0, "CHP": 36.1, "BBP": 0.0},
     {"Firma": "Gündemar", "Tarih": "23-26 Mart 2026", "MAE": 0.0, "AKP": 29.2, "YENI": 0, "DEM": 7.9, "MHP": 6.3, "IYI": 5.5, "YRP": 3.4, "A": 4.7, "ZAFER": 5.5, "TIP": 1.3, "SAADET": 0.0, "CHP": 33.4, "BBP": 0.0},   
     {"Firma": "Ank-Ar", "Tarih": "Temmuz 2026", "MAE": 0.0, "AKP": 29.4, "YENI": 34.8, "DEM": 7.6, "MHP": 6.9, "IYI": 4.5, "YRP": 2.3, "A": 3.2, "ZAFER": 3.7, "TIP": 1.3, "SAADET": 0.0, "CHP": 4.0, "BBP": 0.0},
     {"Firma": "Ank-Ar", "Tarih": "Haziran 2026", "MAE": 0.0, "AKP": 30.9, "YENI": 0, "DEM": 13.5, "MHP": 9.6, "IYI": 13, "YRP": 2.8, "A": 4.8, "ZAFER": 5.7, "TIP": 3.6, "SAADET": 0.0, "CHP": 13.1, "BBP": 0.0},
+    {"Firma": "Ank-Ar", "Tarih": "28-30 Nisan 2026", "MAE": 0.0, "AKP": 29.5, "YENI": 0, "DEM": 9.3, "MHP": 7.1, "IYI": 6.3, "YRP": 3.5, "A": 4.7, "ZAFER": 3, "TIP": 1, "SAADET": 0.9, "CHP": 32.2, "BBP": 0.8},
     {"Firma": "Ank-Ar", "Tarih": "23-25 Mart 2026", "MAE": 0.0, "AKP": 30.1, "YENI": 0, "DEM": 9.6, "MHP": 7.5, "IYI": 6.5, "YRP": 3.3, "A": 3, "ZAFER": 3.1, "TIP": 1.2, "SAADET": 0.0, "CHP": 31, "BBP": 0.0}, 
     {"Firma": "MetroPOLL", "Tarih": "Temmuz 2026", "MAE": 2.27, "AKP": 28.9, "YENI": 39.1, "DEM": 7.0, "MHP": 4.7, "IYI": 5.0, "YRP": 2.2, "A": 1.7, "ZAFER": 3.4, "TIP": 1.6, "SAADET": 1.3, "CHP": 3.7, "BBP": 0.0},
     {"Firma": "MetroPOLL", "Tarih": "Haziran 2026", "MAE": 2.27, "AKP": 32.3, "YENI": 0, "DEM": 14.2, "MHP": 8.4, "IYI": 14.3, "YRP": 2.8, "A": 3.9, "ZAFER": 4.8, "TIP": 3.1, "SAADET": 1.5, "CHP": 10.9, "BBP": 0.0}
