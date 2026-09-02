@@ -2543,6 +2543,7 @@ function runLocal(){
   })();
   const out={};
   state._yerelMajorUnion = {};
+  const allPList=allParties();
   for (const prov of Object.keys(YEREL_2024.provinces)){
     // structural party base (2024 council) + breakoff parties added on top (no deduction).
     // Candidate personal votes (aday etkisi) are added later as a separate layer.
@@ -2608,7 +2609,7 @@ function runLocal(){
         if (st==='withdrew') continue;
         let target=c.party;
         if (st.indexOf('defected:')===0) target=st.slice(9);
-        if (!allParties().includes(target)) continue;
+        if (!allPList.includes(target)) continue;
         const pers=parseFloat(candPersonal[c.party]!==undefined?candPersonal[c.party]:c.personal)||0;
         if (Math.abs(pers)<0.01) continue;
         add[target]=(add[target]||0)+pers;
@@ -2661,7 +2662,7 @@ function runLocal(){
       for (const aly of Object.keys(allysObj)){
         const members=allysObj[aly].filter(p=>keys.indexOf(p)>=0);
         if (members.length<2) continue;
-        const best=members.slice().sort((a,b)=>(final0[b]||0)-(final0[a]||0))[0];
+        const best=members.slice().sort((a,b)=>(final0[b]||0)-(final0[a]||0)).find(p=>over[p]!=='drop')||members[0];
         running.add(best);
         for (const p of members){
           if (over[p]==='drop'){ dropSet.add(p); continue; }
@@ -3120,7 +3121,9 @@ function renderYerel(){
   const pane=$('#pane_yerel');
   if (!pane) return;
   if (!YEREL_2024) { pane.innerHTML=`<div class="sb-card shadow"><div class="big-note">Yerel seçim verisi yüklenemedi.</div></div>`; return; }
-  runLocal();
+  // model inputs signature: skip runLocal when only display state changed (e.g. province click)
+  const sig=JSON.stringify([state.userInputs,state.customPartiesDef,state.allianceList,state.yerelW24,state.yerelFlow,state.yerelPopBoost,state.yerelPop,state.yerelMajors,state.yerelOverrides,state.yerelMatrix,state.yerelAlliances,state.yerelCandStatus,state.yerelCandPersonal]);
+  if (state._yerelSig!==sig){ runLocal(); state._yerelSig=sig; }
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
   html+=yerelSettingsHtml();
   html+=yerelAlliancesHtml();
