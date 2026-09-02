@@ -845,11 +845,8 @@ function renderMeclis(){
   // 3) detail
   html += detailSectionHtml();
 
-  // 4) infographic card
-  html += `<div class="sb-card shadow section-card" style="margin-top:16px">
-    <button class="btn-download" id="btn-infographic">İNFOGRAFİK İNDİR (PNG)</button>
-    <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
-  </div>`;
+  // 4) infographic button (full width)
+  html += `<button class="btn-download" id="btn-infographic" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>`;
 
   // 5) province results table
   html += `<div class="sb-card shadow section-card">${state.provResultsHtml||`<div class="big-note">Simülasyon çalıştırıldığında il bazlı sonuç tablosu (oy oranı + vekil) oluşturulur.</div>`}</div>`;
@@ -1478,9 +1475,7 @@ function detailSectionHtml(){
       <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
       `}
     </div>
-    <div style="display:flex;justify-content:center;margin-top:14px;width:100%">
-      <button class="btn-download" id="btn-mec-il-info" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
-    </div>
+    <button class="btn-download" id="btn-mec-il-info" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
   </div>`;
   // trigger city map render
   renderCityMapAsync();
@@ -1914,9 +1909,7 @@ function cbDetailSectionHtml(rn){
         <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
         `}
     </div>
-    <div style="display:flex;justify-content:center;margin-top:14px;width:100%">
-      <button class="btn-download" id="btn-cb-il-info" data-rn="${rn}" style="margin:0 auto">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
-    </div>
+    <button class="btn-download" id="btn-cb-il-info" data-rn="${rn}" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
   </div>`;
   return `<div id="cb_d${rn}_detail_section">${inner}</div>`;
 }
@@ -2143,10 +2136,7 @@ function renderCB(){
       <div class="map-frame">${cb.mapHtml1||emptyMap()}</div>
     </div>`;
     html+=cbDetailSectionHtml(1);
-    html+=`<div class="sb-card shadow section-card">
-      <button class="btn-download" id="cb-dl-1">İNFOGRAFİK İNDİR (PNG)</button>
-      <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
-    </div>`;
+    html+=`<button class="btn-download" id="cb-dl-1" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>`;
   }
 
   if (r2Ok){
@@ -2184,10 +2174,8 @@ function cbR2ResultsHtml(cb){
     <div class="map-frame">${cb.mapHtml2||emptyMap()}</div>
   </div>
   ${cbDetailSectionHtml(2)}
-  <div class="sb-card shadow section-card">
-    <button class="btn-download" id="cb-dl-2">İNFOGRAFİK İNDİR (PNG)</button>
-    <div class="big-note">İnfografik, simülasyon çalıştırıldığında otomatik oluşturulur.</div>
-  </div>`;
+  <button class="btn-download" id="cb-dl-2" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>
+  `;
 }
 
 // ---------------- İNFOGRAFİK (port of app.py generators + downloadSvgAsPng) ----------------
@@ -2459,6 +2447,43 @@ async function downloadCbIlInfographic(rn){
   if (!cont){ cont=document.createElement('div'); cont.id='info-cont-cb-il-'+rn; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
   cont.innerHTML=svg;
   downloadSvgAsPng('info-cont-cb-il-'+rn, det.name.replace(/ /g,'_')+'_cb_infografik.png');
+}
+
+async function generateYerelInfographicSvg(title, partiesData, mapSvgClean){
+  const cardWidth=170, cardHeight=65, cardSpacing=25;
+  const top=partiesData.slice().sort((a,b)=>b.wins-a.wins).filter(d=>d.wins>0).slice(0,6);
+  const startX=(1200-(top.length*cardWidth+(top.length-1)*cardSpacing))/2;
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  svg+=`<text x="600" y="40" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
+  svg+=`<text x="600" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#71716E">81 İL BELEDİYE BAŞKANLIĞI · KAZANILAN İL SAYISI</text>`;
+  for (let idx=0; idx<top.length; idx++){
+    const d=top[idx];
+    const color=PARTY_COLORS[d.party]||'#888888', cx=startX+idx*(cardWidth+cardSpacing);
+    svg+=`<rect x="${cx+3}" y="78" width="${cardWidth}" height="${cardHeight}" fill="#111827" rx="2"/><rect x="${cx}" y="75" width="${cardWidth}" height="${cardHeight}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
+    const li=await fetchLogoInner(d.party);
+    if (li) svg+=inlineLogoSvg(li, cx+10, 82, cardWidth-20);
+    else svg+=`<text x="${cx+cardWidth/2}" y="${75+cardHeight/2+6}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(d.party)}</text>`;
+    svg+=`<text x="${cx+cardWidth/2}" y="185" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="26">${d.wins}</text><text x="${cx+cardWidth/2}" y="205" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">il · ort. %${d.share.toFixed(1)}</text>`;
+  }
+  svg+=`<svg x="20" y="225" width="1160" height="655">${mapSvgClean}</svg>`;
+  svg+=await appLogoInline(40,932,280,32);
+  svg+='</svg>';
+  return svg;
+}
+async function downloadYerelInfographic(){
+  const res=state.yerelResults;
+  if (!res||!res.provs) return;
+  const partiesData=[];
+  for (const [p,n] of Object.entries(res.counts)){
+    let sum=0,cnt=0;
+    for (const r of Object.values(res.provs)){ const v=r.shares[p]; if (v!==undefined){ sum+=v; cnt++; } }
+    partiesData.push({party:p, wins:n, share:cnt?sum/cnt:0});
+  }
+  const svg=await generateYerelInfographicSvg('YEREL SEÇİM PROJEKSİYONU — BELEDİYE BAŞKANLIĞI', partiesData, cleanMapForInfographic(yerelMapHtml()));
+  let cont=document.getElementById('info-cont-yerel');
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-yerel'; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-yerel','yerel_secim_infografik.png');
 }
 
 // ---------------- YEREL SEÇİM (il bazlı yerel model) ----------------
@@ -3091,6 +3116,7 @@ function renderYerel(){
     <div class="sb-kicker"><div class="bar"></div><div class="t">İL HARİTASI</div></div>
     <div class="map-frame">${state.yerelResults?yerelMapHtml():emptyMap()}</div>
   </div>`;
+  html+=`<button class="btn-download" id="yerel-infographic" style="width:100%;height:48px;font-size:13px;margin:12px 0 0 0;">YEREL İNFOGRAFİK İNDİR (PNG)</button>`;
   html+=`<div style="margin-top:12px;">${yerelDetailHtml()}</div>`;
   html+=`</div></div>`;
   pane.innerHTML=html;
@@ -3099,6 +3125,8 @@ function renderYerel(){
   const pop=$('#yerel-pop'); if (pop) pop.onchange=()=>{ state.yerelPopBoost=parseFloat(pop.value); renderYerel(); };
   const setToggle=$('#yerel-set-toggle');
   if (setToggle) setToggle.onclick=()=>{ state.yerelSettingsOpen=state.yerelSettingsOpen!==false?false:true; renderYerel(); };
+  const yerelInfo=$('#yerel-infographic');
+  if (yerelInfo) yerelInfo.onclick=()=>downloadYerelInfographic();
   $$('#pane_yerel .yerel-ally-name').forEach(inp=>{
     inp.onchange=()=>{ state.yerelAlliances[parseInt(inp.getAttribute('data-i'),10)].name=inp.value; };
   });
