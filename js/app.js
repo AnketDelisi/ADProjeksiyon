@@ -2931,7 +2931,8 @@ function yerelMajorParties(){
 function yerelMatrixHtml(){
   const matrix=yerelMatrix();
   const major=yerelMajorParties();
-  const blocs=major.slice();
+  const blocs=CB_GROUP_LIST.slice();
+  for (const p of Object.keys(state.customPartiesDef||{})) if (blocs.indexOf(p)<0) blocs.push(p);
   const parties=Object.keys(matrix).filter(p=>major.includes(p));
   let html=`<div class="sb-card shadow" style="margin-bottom:12px">
     <div class="sb-collapse-head" data-key="yerelMatrix">
@@ -2939,11 +2940,11 @@ function yerelMatrixHtml(){
       <div class="sb-collapse-arrow">▾</div>
     </div>
     <div class="sb-collapse-body"><div class="sb-collapse-body-inner">
-      <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları. Sadece büyük partiler gösterilir; çalışma anında blok başına normalize edilir.</div>
+      <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları (%). Sütunlar herhangi bir ilde ana aday olan büyük partilerdir; çalışma anında blok başına normalize edilir.</div>
       <div style="overflow-x:auto;"><table class="conf-table" style="min-width:720px;"><thead><tr><th>Blok</th>${parties.map(p=>`<th style="text-align:center;color:${PARTY_COLORS[p]||'#888'};">${esc(p)}</th>`).join('')}</tr></thead><tbody>
         ${blocs.map(b=>`<tr><td style="font-weight:900;font-size:11px;color:#1A1A1A;">${esc(b)}</td>${parties.map(p=>{
           const v=(matrix[p]&&matrix[p][b])||0;
-          return `<td style="text-align:center;"><input class="yerel-mx" data-party="${esc(p)}" data-bloc="${esc(b)}" type="number" min="0" max="1" step="0.05" value="${v.toFixed(2)}" style="width:56px;height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;"></td>`;
+          return `<td style="text-align:center;"><input class="yerel-mx" data-party="${esc(p)}" data-bloc="${esc(b)}" type="number" min="0" max="100" step="1" value="${Math.round(v*100)}" style="width:56px;height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;"></td>`;
         }).join('')}</tr>`).join('')}
       </tbody></table></div>
     </div></div>
@@ -2998,7 +2999,7 @@ function renderYerel(){
       const m=yerelMatrix();
       const p=inp.getAttribute('data-party'), b=inp.getAttribute('data-bloc');
       if (!m[p]) m[p]={};
-      m[p][b]=clamp(parseFloat(inp.value)||0,0,1);
+      m[p][b]=clamp(parseFloat(inp.value)||0,0,100)/100;
       state.yerelMatrix=m;
     };
   });
