@@ -2536,6 +2536,7 @@ function runLocal(){
     return n;
   })();
   const out={};
+  state._yerelMajorUnion = {};
   for (const prov of Object.keys(YEREL_2024.provinces)){
     // synthesized per-province base: 2024 results + breakoff parties added on top (no deduction)
     const base=Object.assign({}, YEREL_2024.provinces[prov]);
@@ -2581,6 +2582,7 @@ function runLocal(){
     const majors=[];
     for (let i=0;i<Math.min(3,ranked.length);i++) majors.push(ranked[i][0]);
     for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4) majors.push(p); }
+    for (const p of majors) state._yerelMajorUnion[p]=1;
     // alliance dropout: minor alliance members fully support their qualifying partners.
     // Per-province overrides: state.yerelOverrides[prov][party] = 'drop' | 'stay' | auto
     const allyMap={};
@@ -2921,7 +2923,10 @@ function yerelMajorParties(){
   const mk=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(n[s]||0)*row[s]/100; } n[p]=(n[p]||0)+g; };
   mk('YENI'); mk('A');
   const t=Object.values(n).reduce((a,b)=>a+b,0);
-  return Object.entries(n).sort((a,b)=>b[1]-a[1]).filter(([p,v])=>(t>0?v/t*100:0)>=3).map(([p])=>p);
+  const byNat=(p)=>{ const s=n[p]||0; return t>0?s/t*100:s; };
+  const u=state._yerelMajorUnion||null;
+  const base=u?Object.keys(u):Object.keys(n).filter((p)=>byNat(p)>=3);
+  return base.slice().sort((a,b)=>byNat(b)-byNat(a));
 }
 function yerelMatrixHtml(){
   const matrix=yerelMatrix();
