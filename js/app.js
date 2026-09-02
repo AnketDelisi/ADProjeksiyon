@@ -70,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:0, yerelFlow:10, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{},
+  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2893,7 +2893,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı + il meclis sonuçları karışımı (%80 başkan / %20 meclis; büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %90 kazanan il (varsayılan ayar), taban %100'de %97; ortalama oy payı hatası ~1.4 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı sonuçları (büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %94 kazanan il (varsayılan ayar); ortalama oy payı hatası ~1.4 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
