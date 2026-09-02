@@ -3411,61 +3411,19 @@ function buildTrendSvg(df, tabloPartileri){
     const lx=sub.map(s=>(s.Tarih_Formatli.getTime()-tsMin)/86400000);
     const ly=sub.map(s=>s[p]);
     const res=lowessSmooth(lx,ly,0.4);
-    // 90% confidence band: Gaussian-kernel weighted local mean/variance (adaptive sigma),
-    // sampling variance estimated from each poll's MAE (s2 = (MAE/1.96)^2).
-    const SIGMA0=14.0, SIGMA_CAP=84.0, Z90=1.645;
-    const bandPts=[];
-    for (let gi=0; gi<res.xs.length; gi++){
-      const xd=res.xs[gi];
-      if (xd==null||isNaN(xd)||!isFinite(xd)) continue;
-      const dists=lx.map(x=>Math.abs(x-xd)).sort((a,b)=>a-b);
-      let nIn=0; for (const d of dists) if (d<=SIGMA0) nIn++;
-      let sigma=SIGMA0;
-      if (nIn<3) sigma=Math.min(SIGMA_CAP, dists.length>=3?dists[2]:SIGMA_CAP);
-      const ws=[]; let wSum=0;
-      for (let i=0;i<lx.length;i++){ const w=Math.exp(-0.5*Math.pow((lx[i]-xd)/sigma,2)); ws.push(w); wSum+=w; }
-      if (wSum<=0) continue;
-      let contributing=0; for (const w of ws) if (w>0.01) contributing++;
-      if (contributing<2) continue;
-      let mu=0; for (let i=0;i<lx.length;i++) mu+=ws[i]*ly[i];
-      mu/=wSum;
-      let vLoc=0; for (let i=0;i<lx.length;i++) vLoc+=ws[i]*Math.pow(ly[i]-mu,2);
-      vLoc/=wSum;
-      let vSamp=0;
-      for (let i=0;i<lx.length;i++){
-        const mae=sub[i].Hesaplanan_MAE>0?sub[i].Hesaplanan_MAE:2.5;
-        vSamp+=ws[i]*ws[i]*Math.pow(mae/100/1.96,2);
-      }
-      vSamp/= (wSum*wSum);
-      const half=Z90*Math.sqrt(Math.max(0,vLoc)+vSamp);
-      const li=padL+(xd/spanDays)*(w-padL-padR);
-      bandPts.push([li, sy(mu+half), sy(mu-half), sy(mu)]);
-    }
+    // LOWESS trend line (all parties — uniform method)
     let lastLi=null,lastTi=null;
-    if (bandPts.length>1){
-      // bold line = Gaussian kernel weighted mean (consistent with the band center)
-      for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
-      let meanPath='';
-      for (let i=0;i<bandPts.length;i++){
-        const pt=bandPts[i];
-        meanPath+=(meanPath===''?`M ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`:` L ${pt[0].toFixed(1)} ${pt[3].toFixed(1)}`);
-        lastLi=pt[0]; lastTi=pt[3];
-      }
-      if (meanPath) svg+=`<path d="${meanPath}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
-    } else {
-      // fallback: LOWESS flat line for very sparse parties
-      for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
-      let path="";
-      for (let i=0;i<res.xs.length;i++){
-        const yi=res.ys[i];
-        if (yi==null||isNaN(yi)||!isFinite(yi)) continue;
-        const li=padL+(res.xs[i]/spanDays)*(w-padL-padR);
-        const ti=sy(yi);
-        path+=(path===''?`M ${li.toFixed(1)} ${ti.toFixed(1)}`:` L ${li.toFixed(1)} ${ti.toFixed(1)}`);
-        lastLi=li; lastTi=ti;
-      }
-      if (path && lastLi!==null) svg+=`<path d="${path}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    for (const r of sub) svg+=`<circle cx="${sxMs(r.Tarih_Formatli.getTime())}" cy="${sy(r[p])}" r="6" fill="${color}" opacity="0.55" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>`;
+    let path="";
+    for (let i=0;i<res.xs.length;i++){
+      const yi=res.ys[i];
+      if (yi==null||isNaN(yi)||!isFinite(yi)) continue;
+      const li=padL+(res.xs[i]/spanDays)*(w-padL-padR);
+      const ti=sy(yi);
+      path+=(path===''?`M ${li.toFixed(1)} ${ti.toFixed(1)}`:` L ${li.toFixed(1)} ${ti.toFixed(1)}`);
+      lastLi=li; lastTi=ti;
     }
+    if (path && lastLi!==null) svg+=`<path d="${path}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>`;
     if (lastLi!==null) labelPool.push([lastTi,p,color,lastLi]);
   }
   labelPool.sort((a,b)=>a[0]-b[0]);
@@ -3841,6 +3799,8 @@ function bindOlasilikEvents(){
   };
   const tier=document.getElementById('mc-tier-filter');
   if (tier) tier.onchange=()=>{ state.mc.tierFilter=tier.value; renderOlasilik(); };
+  const ratingsToggle=document.getElementById('mc-ratings-toggle');
+  if (ratingsToggle) ratingsToggle.onclick=()=>{ state.mc.ratingsOpen=state.mc.ratingsOpen!==false?false:true; renderOlasilik(); };
 }
 function renderOlasilik(){
   const pane=$('#pane_538');
@@ -3894,14 +3854,21 @@ function renderOlasilik(){
     if (state.mc.provRatings && state.mc.provRatings.length){
       const tf=state.mc.tierFilter||'TÜMÜ';
       const filtered=tf==='TÜMÜ'?state.mc.provRatings:state.mc.provRatings.filter(r=>r.tier===tf);
+      const open=state.mc.ratingsOpen!==false;
       const tierChip=(t,party)=>`<span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[party]||'#888'};color:#FFFFFF;font-weight:900;font-size:10px;letter-spacing:1px;">${t}</span>`;
+      const narrowest=state.mc.provRatings[0];
+      const basabas=state.mc.provRatings.filter(r=>r.tier==='BAŞA BAŞ').length;
       html+=`<div style="background:var(--c-surface);border:2px solid var(--c-edge);width:100%;padding:14px 16px;box-shadow:5px 5px 0 rgba(17,24,39,1);">
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:8px;">
           <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">SEÇİM BÖLGESİ YARIŞ KARNESİ</div></div>
-          <select id="mc-tier-filter" style="height:34px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 8px;background:#fff;color:#1A1A1A;">
-            ${['TÜMÜ','KESİN','GÜÇLÜ','EĞİLİMLİ','HAFİF EĞİLİMLİ','BAŞA BAŞ'].map(t=>`<option value="${t}" ${t===tf?'selected':''}>${t}</option>`).join('')}
-          </select>
+          <div style="display:flex;gap:8px;align-items:center;">
+            ${open?`<select id="mc-tier-filter" style="height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;padding:0 6px;background:#fff;color:#1A1A1A;">
+              ${['TÜMÜ','KESİN','GÜÇLÜ','EĞİLİMLİ','HAFİF EĞİLİMLİ','BAŞA BAŞ'].map(t=>`<option value="${t}" ${t===tf?'selected':''}>${t}</option>`).join('')}
+            </select>`:''}
+            <button class="btn-side" id="mc-ratings-toggle" style="height:28px;">${open?'KAPAT ▴':'KARNE ▾'}</button>
+          </div>
         </div>
+        ${open?`
         <div style="font-size:12px;color:var(--c-text-muted);margin:8px 0 10px 0;">En dar farktan başlayarak ${state.mc.provRatings.length} seçim bölgesinin durumu (500 simülasyon ortalaması). Kademe eşikleri: KESİN &gt;15 · GÜÇLÜ 10-15 · EĞİLİMLİ 5-10 · HAFİF EĞİLİMLİ 2.5-5 · BAŞA BAŞ &lt;2.5 puan.</div>
         <div style="overflow-x:auto;"><table class="conf-table" style="min-width:560px;"><thead><tr><th>Seçim Bölgesi</th><th>Önde Giden Parti</th><th style="text-align:right;">1. Parti Olasılığı</th><th style="text-align:right;">Ort. Fark</th><th style="text-align:right;">Kademe</th></tr></thead><tbody>
           ${filtered.map(r=>{
@@ -3915,6 +3882,7 @@ function renderOlasilik(){
             </tr>`;
           }).join('')}
         </tbody></table></div>
+        `:`<div style="font-size:11px;color:#71716E;font-weight:800;letter-spacing:0.5px;margin-top:8px;">${state.mc.provRatings.length} SEÇİM BÖLGESİ · BAŞA BAŞ: ${basabas} · EN DAR FARK: ${esc(mcDistDisplayName(narrowest.prov))} ${esc(narrowest.party)} +${narrowest.margin.toFixed(1)}</div>`}
       </div>`;
     }
     html+=`</div>`;
