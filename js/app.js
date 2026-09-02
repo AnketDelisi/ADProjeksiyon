@@ -2916,18 +2916,25 @@ function yerelAlliancesHtml(){
   </div>`;
   return html;
 }
+function yerelMajorParties(){
+  const n=Object.assign({}, YEREL_2024.nat||{});
+  const mk=(p)=>{ const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(n[s]||0)*row[s]/100; } n[p]=(n[p]||0)+g; };
+  mk('YENI'); mk('A');
+  const t=Object.values(n).reduce((a,b)=>a+b,0);
+  return Object.entries(n).sort((a,b)=>b[1]-a[1]).filter(([p,v])=>(t>0?v/t*100:0)>=3).map(([p])=>p);
+}
 function yerelMatrixHtml(){
   const matrix=yerelMatrix();
-  const blocs=CB_GROUP_LIST.slice();
-  for (const p of Object.keys(state.customPartiesDef||{})) if (blocs.indexOf(p)<0) blocs.push(p);
-  const parties=Object.keys(matrix);
+  const major=yerelMajorParties();
+  const blocs=major.slice();
+  const parties=Object.keys(matrix).filter(p=>major.includes(p));
   let html=`<div class="sb-card shadow" style="margin-bottom:12px">
     <div class="sb-collapse-head" data-key="yerelMatrix">
       <div class="ttl"><div class="bar"></div><div class="t">BLOK ÇEKİM MATRİSİ</div></div>
       <div class="sb-collapse-arrow">▾</div>
     </div>
     <div class="sb-collapse-body"><div class="sb-collapse-body-inner">
-      <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları. Çalışma anında blok başına normalize edilir.</div>
+      <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları. Sadece büyük partiler gösterilir; çalışma anında blok başına normalize edilir.</div>
       <div style="overflow-x:auto;"><table class="conf-table" style="min-width:720px;"><thead><tr><th>Blok</th>${parties.map(p=>`<th style="text-align:center;color:${PARTY_COLORS[p]||'#888'};">${esc(p)}</th>`).join('')}</tr></thead><tbody>
         ${blocs.map(b=>`<tr><td style="font-weight:900;font-size:11px;color:#1A1A1A;">${esc(b)}</td>${parties.map(p=>{
           const v=(matrix[p]&&matrix[p][b])||0;
