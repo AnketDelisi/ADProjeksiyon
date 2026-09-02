@@ -2688,10 +2688,7 @@ function yerelTooltipHtml(r){
   const entries=Object.entries(r.shares).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
   for (const [p,v] of entries){
     const maj=r.majors.indexOf(p)>=0;
-    const d24=v-(r.base2024&&r.base2024[p]||0);
-    const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
-    const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'';
-    html+=`<div class="tip-row"><div class="tip-party" style="${maj?'font-weight:900;':'font-weight:700;'}">${esc(p)}${maj?' ★':''}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${v.toFixed(1)}%; background-color: ${PARTY_COLORS[p]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)} <span style="color:${dCol};font-weight:900;font-size:9px;">${dTxt}</span></div></div>`;
+    html+=`<div class="tip-row"><div class="tip-party" style="${maj?'font-weight:900;':'font-weight:700;'}">${esc(p)}${maj?' ★':''}</div><div class="tip-bar-bg"><div class="tip-bar-fill" style="width: ${v.toFixed(1)}%; background-color: ${PARTY_COLORS[p]||'#888888'};"></div></div><div class="tip-pct">%${v.toFixed(1)}</div></div>`;
   }
   html+=`<div class="tip-tier" style="display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:4px 0;border:2px solid #111827;background:${PARTY_COLORS[r.winner]||'#888'};color:#FFFFFF;font-weight:900;font-size:11px;letter-spacing:1px;text-align:center;">${tier} · FARK %${r.margin.toFixed(1)}</div>`;
   return html;
@@ -2758,7 +2755,6 @@ function yerelDetailHtml(){
       return `<div style="display:flex;height:26px;border:2px solid #111827;background:#F0EFED;margin:0 2px 12px 2px;box-shadow:2px 2px 0 rgba(17,24,39,1);">${bar}</div>`;
     })()}
     <div style="padding:0 2px">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:10px;color:#71716E;font-weight:800;letter-spacing:0.5px;">Δ = 2024 BELEDİYE BAŞKANI SONUCUNA GÖRE DEĞİŞİM <span style="color:#1A8917;">▲ artış</span> <span style="color:#E00000;">▼ düşüş</span></div>
       ${rows.map(([p,v])=>{
         const maj=r.majors.indexOf(p)>=0;
         const boost=r.popApplied&&r.popApplied[p];
@@ -2767,7 +2763,6 @@ function yerelDetailHtml(){
         const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
         const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'±0';
         const subLines=[];
-        if (boost) subLines.push(`<div style="font-size:10px;color:${PARTY_COLORS[p]||'#888'};font-weight:900;margin-top:2px;">POPÜLERLİK ÇARPANI ×${parseFloat(boost).toFixed(1)}</div>`);
         if (flowIn&&flowIn.length) subLines.push(`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`);
         return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
           <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
@@ -2775,6 +2770,7 @@ function yerelDetailHtml(){
             <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
             ${subLines.join('')}
           </div>
+          ${boost?`<span style="padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;">×${parseFloat(boost).toFixed(1)}</span>`:''}
           <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)} <span style="font-size:10px;color:${dCol};">${dTxt}</span></div>
         </div>`;
       }).join('')}
