@@ -2904,7 +2904,7 @@ function yerelCandidatesHtml(prov, r){
         const pd=parseFloat(pers)||0;
         return `<div style="display:flex;align-items:center;gap:6px;">
           <span style="width:64px;font-weight:900;font-size:12px;color:${pcol};white-space:nowrap;">${esc(c.party)}${c.incumbent?' ★':''}</span>
-          <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:52px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;color:${pd>0.05?'#1A8917':pd<-0.05?'#E00000':'#1A1A1A'};">
+          <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:68px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;color:${pd>0.05?'#1A8917':pd<-0.05?'#E00000':'#1A1A1A'};">
           <select class="yerel-cand-status" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="flex:1;min-width:0;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
             <option value="running" ${st==='running'?'selected':''}>Aynı Aday</option>
             <option value="withdrew" ${st==='withdrew'?'selected':''}>Yeni Aday</option>
