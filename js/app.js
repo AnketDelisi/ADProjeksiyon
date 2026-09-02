@@ -15,6 +15,7 @@ let FIRM_NAMES_JS = [];         // unique sorted Firma list from polls
 let ILCE_NAMES = null;          // ilce_names.json {provinces:{p|i:name}, global:{i:name}}
 let SVG_TURKIYE2 = "";          // turkiye2.svg raw (province-level map)
 let YEREL_2024 = null;          // yerel_2024.json {provinces:{p:{party:pct}}, nat, winners}
+let YEREL_CANDIDATES = null;    // yerel_candidates.json {provinces:{p:{structural,mayoral2024,winners,candidates}}, defections}
 let BUYUKSEHIR = {};            // set of büyükşehir province norm ids
 let BELEDIYE_MECLIS = null;     // belediye_meclis.json {provNorm: councilSeats}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
@@ -69,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{},
+  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'off', yerelCandStatus:{}, yerelCandPersonal:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2528,8 +2529,10 @@ function runLocal(){
   const out={};
   state._yerelMajorUnion = {};
   for (const prov of Object.keys(YEREL_2024.provinces)){
-    // synthesized per-province base: 2024 results + breakoff parties added on top (no deduction)
-    const base=Object.assign({}, YEREL_2024.provinces[prov]);
+    // structural party base (2024 council) + breakoff parties added on top (no deduction).
+    // Candidate personal votes (aday etkisi) are added later as a separate layer.
+    const candProv=YEREL_CANDIDATES&&YEREL_CANDIDATES.provinces[prov];
+    const base=Object.assign({}, (candProv&&candProv.structural)||YEREL_2024.provinces[prov]);
     const mkB=(p)=>{ if (!((un[p]||0)>0)) return; const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(base[s]||0)*row[s]/100; } base[p]=(base[p]||0)+g; };
     mkB('YENI'); mkB('A');
     const bT=Object.values(base).reduce((a,b)=>a+b,0);
@@ -2556,6 +2559,35 @@ function runLocal(){
     for (const p of keys) final0[p]=w24*(base[p]||0)+(1-w24)*(swinged[p]||0);
     const tF=Object.values(final0).reduce((a,b)=>a+b,0);
     for (const p of keys) final0[p]=tF>0?final0[p]/tF*100:0;
+    // candidate layer: personal vote (aday etkisi) — running: add to own party;
+    // withdrew: personal vote returns to party pool; defected: follows the candidate.
+    // Per-province overrides win; else '2024 kazananları yeni partilere geçti' preset (defections).
+    if (candProv&&candProv.candidates&&candProv.candidates.length){
+      const candStatus=(state.yerelCandStatus&&state.yerelCandStatus[prov])||{};
+      const candPersonal=(state.yerelCandPersonal&&state.yerelCandPersonal[prov])||{};
+      const defectOn=state.yerelDefectMode==='yeni';
+      const defMap={};
+      if (defectOn&&YEREL_CANDIDATES.defections){
+        for (const d of YEREL_CANDIDATES.defections) if (d[0]===prov) defMap[d[1]]=d[2];
+      }
+      const add={};
+      for (const c of candProv.candidates){
+        const preset=defMap[c.party]?('defected:'+defMap[c.party]):null;
+        let st=candStatus[c.party]||preset||c.status||'running';
+        if (st==='withdrew') continue;
+        let target=c.party;
+        if (st.indexOf('defected:')===0) target=st.slice(9);
+        if (!allParties().includes(target)) continue;
+        const pers=parseFloat(candPersonal[c.party]!==undefined?candPersonal[c.party]:c.personal)||0;
+        if (Math.abs(pers)<0.01) continue;
+        add[target]=(add[target]||0)+pers;
+      }
+      if (Object.keys(add).length){
+        for (const p of Object.keys(add)){ if (final0[p]===undefined){ final0[p]=0; keys.push(p); } final0[p]+=add[p]; }
+        const tA=Object.values(final0).reduce((a,b)=>a+b,0);
+        for (const p of keys) final0[p]=tA>0?final0[p]/tA*100:0;
+      }
+    }
     // per-province popularity multiplier (user picks party + boost amount)
     const pop=(state.yerelPop&&state.yerelPop[prov])||{};
     let anyPop=false;
@@ -2780,6 +2812,7 @@ function yerelDetailHtml(){
   html+=yerelAllyOverridesHtml(r.prov);
   html+=yerelMajorsHtml(r);
   html+=yerelPopHtml(r.prov, rows.map(x=>x[0]));
+  html+=yerelCandidatesHtml(r.prov, r);
   html+=`</div>`;
   html+=yerelCouncilHtml(r);
   return html;
@@ -2838,6 +2871,47 @@ function yerelMajorsHtml(r){
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="btn-side" id="yerel-majors-auto" data-prov="${esc(r.prov)}" style="flex:1;">OTOMATİK</button>
       <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;font-size:10px;color:#71716E;font-weight:800;letter-spacing:0.5px;">ANA ADAYLAR: ${r.majors.map(p=>`<span style="margin-left:4px;padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;">${esc(p)}</span>`).join('')}</div>
+    </div>
+  </div>`;
+}
+function yerelCandidatesHtml(prov, r){
+  const cp=YEREL_CANDIDATES&&YEREL_CANDIDATES.provinces[prov];
+  if (!cp||!cp.candidates||!cp.candidates.length) return '';
+  const candStatus=(state.yerelCandStatus&&state.yerelCandStatus[prov])||{};
+  const candPersonal=(state.yerelCandPersonal&&state.yerelCandPersonal[prov])||{};
+  const allP=allParties();
+  const defectOn=state.yerelDefectMode==='yeni';
+  const defMap={};
+  if (defectOn&&YEREL_CANDIDATES.defections){ for (const d of YEREL_CANDIDATES.defections) if (d[0]===prov) defMap[d[1]]=d[2]; }
+  const rows=cp.candidates.slice().sort((a,b)=>b.personal-a.personal);
+  return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">ADAYLAR (İL)</div></div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${rows.map(c=>{
+        const st=candStatus[c.party]||(defMap[c.party]?('defected:'+defMap[c.party]):'')||c.status||'running';
+        const pers=candPersonal[c.party]!==undefined?candPersonal[c.party]:c.personal;
+        const isDef=st.indexOf('defected:')===0;
+        const curTarget=isDef?st.slice(9):'';
+        const pcol=PARTY_COLORS[c.party]||'#888';
+        const pd=parseFloat(pers)||0;
+        const pSign=pd>0.05?'+'+pd.toFixed(1):pd<-0.05?pd.toFixed(1):'0';
+        return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:2px solid var(--c-edge);background:#F7F7F5;flex-wrap:wrap;">
+          <span style="padding:2px 8px;border:2px solid #111827;background:${pcol};color:#FFF;font-weight:900;font-size:11px;">${esc(c.party)}${c.incumbent?' ★':''}</span>
+          <span style="font-size:10px;color:#71716E;font-weight:800;">2024 %${(cp.mayoral2024[c.party]||0).toFixed(1)} <span style="color:${pd>0.05?'#1A8917':pd<-0.05?'#E00000':'#9E9E9E'};">(${pSign})</span></span>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:10px;font-weight:900;color:var(--c-text-muted);">ADAY ETKİSİ</span>
+            <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:56px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;">
+          </div>
+          <select class="yerel-cand-status" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
+            <option value="running" ${st==='running'?'selected':''}>Yarışıyor</option>
+            <option value="withdrew" ${st==='withdrew'?'selected':''}>Çekildi</option>
+            <option value="defected" ${isDef?'selected':''}>Parti değiştirdi →</option>
+          </select>
+          ${isDef?`<select class="yerel-cand-target" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
+            ${allP.filter(x=>x!==c.party).map(p=>`<option value="${esc(p)}" ${p===curTarget?'selected':''}>${esc(p)}</option>`).join('')}
+          </select>`:''}
+        </div>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -2928,7 +3002,11 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 belediye başkanı sonuçları (büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024): %100 kazanan il (varsayılan ayar); ortalama oy payı hatası ~0.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;font-weight:900;">
+      <input id="yerel-defect" type="checkbox" ${state.yerelDefectMode==='yeni'?'checked':''} style="accent-color:#111827;width:16px;height:16px;cursor:pointer;">
+      <span>2024 KAZANANLARI YENİ PARTİLERE GEÇTİ <span style="color:#71716E;font-weight:800;">(aday etkisi yeni partiye taşınır)</span></span>
+    </div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı (başkan−meclis farkı). Geri test (2024): %100 kazanan il (varsayılan ayar); ortalama oy payı hatası ~0.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
@@ -3093,6 +3171,42 @@ function renderYerel(){
     if (state.yerelMajors) delete state.yerelMajors[majorsAuto.getAttribute('data-prov')];
     renderYerel();
   };
+  const defect=$('#yerel-defect');
+  if (defect) defect.onchange=()=>{ state.yerelDefectMode=defect.checked?'yeni':'off'; renderYerel(); };
+  $$('#pane_yerel .yerel-cand-status').forEach(sel=>{
+    sel.onchange=()=>{
+      const prov=sel.getAttribute('data-prov'), p=sel.getAttribute('data-party');
+      if (!state.yerelCandStatus) state.yerelCandStatus={};
+      if (!state.yerelCandStatus[prov]) state.yerelCandStatus[prov]={};
+      const v=sel.value;
+      if (v==='running'||v==='withdrew') state.yerelCandStatus[prov][p]=v;
+      else {
+        const cur=state.yerelCandStatus[prov][p]||'';
+        const tgt=(cur.indexOf('defected:')===0)?cur.slice(9):(allParties().find(x=>x!==p)||'');
+        state.yerelCandStatus[prov][p]='defected:'+tgt;
+      }
+      renderYerel();
+    };
+  });
+  $$('#pane_yerel .yerel-cand-target').forEach(sel=>{
+    sel.onchange=()=>{
+      const prov=sel.getAttribute('data-prov'), p=sel.getAttribute('data-party');
+      if (!state.yerelCandStatus) state.yerelCandStatus={};
+      if (!state.yerelCandStatus[prov]) state.yerelCandStatus[prov]={};
+      state.yerelCandStatus[prov][p]='defected:'+sel.value;
+      renderYerel();
+    };
+  });
+  $$('#pane_yerel .yerel-cand-personal').forEach(inp=>{
+    inp.onchange=()=>{
+      const prov=inp.getAttribute('data-prov'), p=inp.getAttribute('data-party');
+      if (!state.yerelCandPersonal) state.yerelCandPersonal={};
+      if (!state.yerelCandPersonal[prov]) state.yerelCandPersonal[prov]={};
+      const v=parseFloat(inp.value);
+      if (isFinite(v)) state.yerelCandPersonal[prov][p]=v;
+      renderYerel();
+    };
+  });
   $$('#pane_yerel .sb-collapse-head').forEach(h=>{
     h.addEventListener('click',()=>{ h.parentElement.setAttribute('data-open', String(h.parentElement.getAttribute('data-open')!=='true')); });
   });
@@ -3822,7 +3936,7 @@ function renderOlasilik(){
 // ================= boot =================
 async function boot(){
   bindSegNav();
-  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, big, meclis] = await Promise.all([
+  const [yrs, dists, svg, polls, ilceNames, svg2, yerel, yerelCand, big, meclis] = await Promise.all([
     fetch('data/base_years.json').then(r=>r.json()),
     fetch('data/districts.json').then(r=>r.json()),
     fetch('data/turkiye.svg').then(r=>r.text()),
@@ -3830,6 +3944,7 @@ async function boot(){
     fetch('data/ilce_names.json').then(r=>r.json()).catch(()=>null),
     fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
     fetch('data/yerel_2024_merkez.json').then(r=>r.json()).catch(()=>null),
+    fetch('data/yerel_candidates.json').then(r=>r.json()).catch(()=>null),
     fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
     fetch('data/belediye_meclis.json').then(r=>r.json()).catch(()=>null)
   ]);
@@ -3838,6 +3953,7 @@ async function boot(){
   ILCE_NAMES=ilceNames;
   SVG_TURKIYE2=cleanSvgString(svg2);
   YEREL_2024=yerel;
+  YEREL_CANDIDATES=yerelCand;
   BUYUKSEHIR={}; for (const b of big) BUYUKSEHIR[String(b).toLowerCase()]=1;
   BELEDIYE_MECLIS=meclis;
   POLLS_RAW=polls||[];
