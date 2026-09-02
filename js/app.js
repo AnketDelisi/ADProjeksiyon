@@ -2450,22 +2450,21 @@ async function downloadCbIlInfographic(rn){
 }
 
 async function generateYerelInfographicSvg(title, partiesData, mapSvgClean){
-  const cardWidth=170, cardHeight=65, cardSpacing=25;
-  const top=partiesData.slice().sort((a,b)=>b.wins-a.wins).filter(d=>d.wins>0).slice(0,6);
-  const startX=(1200-(top.length*cardWidth+(top.length-1)*cardSpacing))/2;
+  const cardSize=80, cardSpacing=22;
+  const top=partiesData.slice().sort((a,b)=>b.wins-a.wins).filter(d=>d.wins>0).slice(0,8);
+  const startX=(1200-(top.length*cardSize+(top.length-1)*cardSpacing))/2;
   let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
-  svg+=`<text x="600" y="40" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
-  svg+=`<text x="600" y="63" text-anchor="middle" font-size="13" font-weight="700" fill="#71716E">81 İL BELEDİYE BAŞKANLIĞI · KAZANILAN İL SAYISI</text>`;
+  svg+=`<text x="600" y="38" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
   for (let idx=0; idx<top.length; idx++){
     const d=top[idx];
-    const color=PARTY_COLORS[d.party]||'#888888', cx=startX+idx*(cardWidth+cardSpacing);
-    svg+=`<rect x="${cx+3}" y="78" width="${cardWidth}" height="${cardHeight}" fill="#111827" rx="2"/><rect x="${cx}" y="75" width="${cardWidth}" height="${cardHeight}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
+    const color=PARTY_COLORS[d.party]||'#888888', cx=startX+idx*(cardSize+cardSpacing);
+    svg+=`<rect x="${cx+3}" y="55" width="${cardSize}" height="${cardSize}" fill="#111827" rx="2"/><rect x="${cx}" y="52" width="${cardSize}" height="${cardSize}" fill="${color}" stroke="#111827" stroke-width="1.5" rx="2"/>`;
     const li=await fetchLogoInner(d.party);
-    if (li) svg+=inlineLogoSvg(li, cx+10, 82, cardWidth-20);
-    else svg+=`<text x="${cx+cardWidth/2}" y="${75+cardHeight/2+6}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(d.party)}</text>`;
-    svg+=`<text x="${cx+cardWidth/2}" y="185" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="26">${d.wins}</text><text x="${cx+cardWidth/2}" y="205" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">il · ort. %${d.share.toFixed(1)}</text>`;
+    if (li) svg+=inlineLogoSvg(li, cx+10, 62, cardSize-20);
+    else svg+=`<text x="${cx+cardSize/2}" y="${52+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(d.party)}</text>`;
+    svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${d.wins}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${d.inputShare.toFixed(2)}</text>`;
   }
-  svg+=`<svg x="20" y="225" width="1160" height="655">${mapSvgClean}</svg>`;
+  svg+=`<svg x="30" y="205" width="1120" height="635">${mapSvgClean}</svg>`;
   svg+=await appLogoInline(40,932,280,32);
   svg+='</svg>';
   return svg;
@@ -2473,11 +2472,10 @@ async function generateYerelInfographicSvg(title, partiesData, mapSvgClean){
 async function downloadYerelInfographic(){
   const res=state.yerelResults;
   if (!res||!res.provs) return;
+  const un=userNorm();
   const partiesData=[];
   for (const [p,n] of Object.entries(res.counts)){
-    let sum=0,cnt=0;
-    for (const r of Object.values(res.provs)){ const v=r.shares[p]; if (v!==undefined){ sum+=v; cnt++; } }
-    partiesData.push({party:p, wins:n, share:cnt?sum/cnt:0});
+    partiesData.push({party:p, wins:n, inputShare:un[p]||0});
   }
   const svg=await generateYerelInfographicSvg('YEREL SEÇİM PROJEKSİYONU — BELEDİYE BAŞKANLIĞI', partiesData, cleanMapForInfographic(yerelMapHtml()));
   let cont=document.getElementById('info-cont-yerel');
@@ -2657,9 +2655,25 @@ function runLocal(){
     const running=new Set(majors);
     for (const p of keys){ if (over[p]==='stay') running.add(p); }
     const dropSet=new Set();
+    // BÜYÜKŞEHİR kuralı: her ittifakta yalnız en büyük bileşen yarışta kalır;
+    // diğer üyeler çekilir ve ona tam destek verir (elle 'stay' işaretlendiyse o da yarışır).
+    if (BUYUKSEHIR[prov]){
+      for (const aly of Object.keys(allysObj)){
+        const members=allysObj[aly].filter(p=>keys.indexOf(p)>=0);
+        if (members.length<2) continue;
+        const best=members.slice().sort((a,b)=>(final0[b]||0)-(final0[a]||0))[0];
+        running.add(best);
+        for (const p of members){
+          if (over[p]==='drop'){ dropSet.add(p); continue; }
+          if (over[p]==='stay'||p===best) continue;
+          dropSet.add(p);
+        }
+      }
+    }
     for (const p of keys){
       if (over[p]==='drop'){ dropSet.add(p); continue; }
       if (over[p]==='stay' || majors.indexOf(p)>=0) continue;
+      if (dropSet.has(p)) continue;
       const aly=allyMap[p];
       if (!aly) continue;
       if (allysObj[aly].some(x=>x!==p && running.has(x))) dropSet.add(p);
