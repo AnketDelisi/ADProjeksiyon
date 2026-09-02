@@ -2800,22 +2800,22 @@ function yerelDetailHtml(){
           const maj=majorSet[p];
           const boost=r.popApplied&&r.popApplied[p];
           const d24=v-(r.base2024&&r.base2024[p]||0);
-          const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
-          const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'±0';
-          return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
+          const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'';
+          const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'';
+          return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
             <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
             <div style="flex:1;">
               <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
             </div>
             ${boost?`<span style="height:14px;display:inline-flex;align-items:center;padding:0 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;box-sizing:border-box;">×${parseFloat(boost).toFixed(1)}</span>`:''}
-            <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)} <span style="font-size:10px;color:${dCol};">${dTxt}</span></div>
+            <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)}${dCol?` <span style="font-size:10px;color:${dCol};">${dTxt}</span>`:''}</div>
           </div>`;
-        }).join('')+(othersV>0.05?`<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
+        }).join('')+(othersV>0.05?`<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
           <div style="width:86px;font-weight:700;font-size:12px;color:#64748B;white-space:nowrap;">DİĞER</div>
           <div style="flex:1;">
             <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(othersV/maxV)*100).toFixed(1)}%;background:#9E9E9E;"></div></div>
           </div>
-          <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${othersV.toFixed(1)} <span style="font-size:10px;color:${othersCol};">${othersTxt}</span></div>
+          <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${othersV.toFixed(1)}${othersCol?` <span style="font-size:10px;color:${othersCol};">${othersTxt}</span>`:''}</div>
         </div>`:'');
       })()}
     </div>
@@ -3059,15 +3059,21 @@ function yerelMatrixHtml(){
   const blocs=CB_GROUP_LIST.slice();
   for (const p of Object.keys(state.customPartiesDef||{})) if (blocs.indexOf(p)<0) blocs.push(p);
   const parties=major.slice();
+  const open=state.yerelMatrixOpen===true;
   let html=`<div class="sb-card shadow" style="margin-bottom:12px">
-    <div class="sb-kicker"><div class="bar"></div><div class="t">BLOK ÇEKİM MATRİSİ</div></div>
-    <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları (%). Sütunlar herhangi bir ilde ana aday olan büyük partilerdir; çalışma anında blok başına normalize edilir.</div>
-    <div style="overflow-x:auto;"><table class="conf-table" style="min-width:720px;"><thead><tr><th>Blok</th>${parties.map(p=>`<th style="text-align:center;color:${PARTY_COLORS[p]||'#888'};">${esc(p)}</th>`).join('')}</tr></thead><tbody>
-      ${blocs.map(b=>`<tr><td style="font-weight:900;font-size:11px;color:#1A1A1A;">${esc(b)}</td>${parties.map(p=>{
-        const v=(matrix[b]&&matrix[b][p])||0;
-        return `<td style="text-align:center;"><input class="yerel-mx" data-party="${esc(p)}" data-bloc="${esc(b)}" type="number" min="0" max="100" step="1" value="${Math.round(v*100)}" style="width:56px;height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;"></td>`;
-      }).join('')}</tr>`).join('')}
-    </tbody></table></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="sb-kicker" style="margin:0;"><div class="bar"></div><div class="t">BLOK ÇEKİM MATRİSİ</div></div>
+      <button class="btn-side" id="yerel-mx-toggle" style="height:28px;flex-shrink:0;">${open?'KAPAT ▴':'DÜZENLE ▾'}</button>
+    </div>
+    ${open?`
+      <div style="font-size:11px;color:var(--c-text-muted);margin-top:8px;">Her bloktan (satır) ana adaylara (sütun) akan oy ağırlıkları (%). Çalışma anında blok başına normalize edilir.</div>
+      <div style="overflow-x:auto;margin-top:8px;"><table class="conf-table" style="min-width:720px;"><thead><tr><th>Blok</th>${parties.map(p=>`<th style="text-align:center;color:${PARTY_COLORS[p]||'#888'};">${esc(p)}</th>`).join('')}</tr></thead><tbody>
+        ${blocs.map(b=>`<tr><td style="font-weight:900;font-size:11px;color:#1A1A1A;">${esc(b)}</td>${parties.map(p=>{
+          const v=(matrix[b]&&matrix[b][p])||0;
+          return `<td style="text-align:center;"><input class="yerel-mx" data-party="${esc(p)}" data-bloc="${esc(b)}" type="number" min="0" max="100" step="1" value="${Math.round(v*100)}" style="width:56px;height:28px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;"></td>`;
+        }).join('')}</tr>`).join('')}
+      </tbody></table></div>
+    `:`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:#71716E;font-weight:800;letter-spacing:0.5px;">${blocs.length} BLOK · ${parties.length} ANA ADAY · MİNOR AKIŞ %${state.yerelFlow}</div>`}
   </div>`;
   return html;
 }
@@ -3123,6 +3129,8 @@ function renderYerel(){
       renderYerel();
     };
   });
+  const mxToggle=$('#yerel-mx-toggle');
+  if (mxToggle) mxToggle.onclick=()=>{ state.yerelMatrixOpen=!state.yerelMatrixOpen; renderYerel(); };
   const mw=$('#map-wrapper-yerel');
   if (mw) bindMapWrapper('yerel', norm=>{ state.yerelProv=norm; renderYerel(); });
   $$('#pane_yerel .yerel-ally-ovr').forEach(sel=>{
