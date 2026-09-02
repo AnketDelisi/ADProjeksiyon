@@ -2903,8 +2903,8 @@ function yerelCandidatesHtml(prov, r){
             <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:56px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;">
           </div>
           <select class="yerel-cand-status" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
-            <option value="running" ${st==='running'?'selected':''}>Yarışıyor</option>
-            <option value="withdrew" ${st==='withdrew'?'selected':''}>Çekildi</option>
+            <option value="running" ${st==='running'?'selected':''}>Aynı Aday</option>
+            <option value="withdrew" ${st==='withdrew'?'selected':''}>Yeni Aday</option>
             <option value="defected" ${isDef?'selected':''}>Parti değiştirdi →</option>
           </select>
           ${isDef?`<select class="yerel-cand-target" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
@@ -3006,7 +3006,7 @@ function yerelSettingsHtml(){
       <input id="yerel-defect" type="checkbox" ${state.yerelDefectMode==='yeni'?'checked':''} style="accent-color:#111827;width:16px;height:16px;cursor:pointer;">
       <span>2024 KAZANANLARI YENİ PARTİLERE GEÇTİ <span style="color:#71716E;font-weight:800;">(aday etkisi yeni partiye taşınır)</span></span>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı (başkan−meclis farkı). 2024 kazananlarının yeni partilere geçişi varsayılan olarak açık (kapatıp 2024'e göre geri test: %99 kazanan il, oy hatası ~0.9 puan). İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday, kazananların yeni partilere geçişi açık. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
