@@ -3768,7 +3768,7 @@ async function boot(){
     fetch('data/polls.json').then(r=>r.json()).catch(()=>[]),
     fetch('data/ilce_names.json').then(r=>r.json()).catch(()=>null),
     fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
-    fetch('data/yerel_2024.json').then(r=>r.json()).catch(()=>null),
+    fetch('data/yerel_2024_merkez.json').then(r=>r.json()).catch(()=>null),
     fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
     fetch('data/yerel_targets.json').then(r=>r.json()).catch(()=>null),
     fetch('data/belediye_meclis.json').then(r=>r.json()).catch(()=>null)
