@@ -2894,37 +2894,28 @@ function yerelCandidatesHtml(prov, r){
   const rows=cp.candidates.slice().sort((a,b)=>b.personal-a.personal);
   return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">ADAYLAR (İL)</div></div>
-    <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 4px 2px;font-size:9px;font-weight:900;color:#71716E;letter-spacing:0.5px;">
-      <span style="width:96px;">ADAY</span>
-      <span style="flex:1;text-align:right;">2024 SONUCU</span>
-      <span style="width:64px;text-align:center;">ETKİ (pp)</span>
-      <span style="width:150px;text-align:center;">DURUM</span>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      ${rows.map(c=>{
+        const st=candStatus[c.party]||(defMap[c.party]?('defected:'+defMap[c.party]):'')||c.status||'running';
+        const pers=candPersonal[c.party]!==undefined?candPersonal[c.party]:c.personal;
+        const isDef=st.indexOf('defected:')===0;
+        const curTarget=isDef?st.slice(9):'';
+        const pcol=PARTY_COLORS[c.party]||'#888';
+        const pd=parseFloat(pers)||0;
+        return `<div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:64px;font-weight:900;font-size:12px;color:${pcol};white-space:nowrap;">${esc(c.party)}${c.incumbent?' ★':''}</span>
+          <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:52px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;color:${pd>0.05?'#1A8917':pd<-0.05?'#E00000':'#1A1A1A'};">
+          <select class="yerel-cand-status" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="flex:1;min-width:0;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
+            <option value="running" ${st==='running'?'selected':''}>Aynı Aday</option>
+            <option value="withdrew" ${st==='withdrew'?'selected':''}>Yeni Aday</option>
+            <option value="defected" ${isDef?'selected':''}>Parti değiştirdi →</option>
+          </select>
+          ${isDef?`<select class="yerel-cand-target" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="width:92px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;">
+            ${allP.filter(x=>x!==c.party).map(p=>`<option value="${esc(p)}" ${p===curTarget?'selected':''}>${esc(p)}</option>`).join('')}
+          </select>`:''}
+        </div>`;
+      }).join('')}
     </div>
-    ${rows.map(c=>{
-      const st=candStatus[c.party]||(defMap[c.party]?('defected:'+defMap[c.party]):'')||c.status||'running';
-      const pers=candPersonal[c.party]!==undefined?candPersonal[c.party]:c.personal;
-      const isDef=st.indexOf('defected:')===0;
-      const curTarget=isDef?st.slice(9):'';
-      const pcol=PARTY_COLORS[c.party]||'#888';
-      const may=cp.mayoral2024[c.party]||0;
-      const pd=parseFloat(pers)||0;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:1px dashed #111827;">
-        <span style="width:96px;font-weight:900;font-size:12px;color:${pcol};white-space:nowrap;">${esc(c.party)}${c.incumbent?' ★':''}</span>
-        <span style="flex:1;text-align:right;font-weight:900;font-size:11px;font-variant-numeric:tabular-nums;color:#1A1A1A;">%${may.toFixed(1)}</span>
-        <input class="yerel-cand-personal" data-prov="${esc(prov)}" data-party="${esc(c.party)}" type="number" min="-25" max="25" step="0.5" value="${pers}" style="width:56px;height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:11px;text-align:center;background:#fff;color:${pd>0.05?'#1A8917':pd<-0.05?'#E00000':'#1A1A1A'};">
-        <select class="yerel-cand-status" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:26px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;width:150px;">
-          <option value="running" ${st==='running'?'selected':''}>Aynı Aday</option>
-          <option value="withdrew" ${st==='withdrew'?'selected':''}>Yeni Aday</option>
-          <option value="defected" ${isDef?'selected':''}>Parti değiştirdi →</option>
-        </select>
-      </div>${isDef?`<div style="display:flex;align-items:center;gap:8px;padding:0 2px 5px 2px;margin-top:-3px;">
-        <span style="width:96px;"></span>
-        <span style="flex:1;text-align:right;font-size:9px;font-weight:900;color:#71716E;letter-spacing:0.5px;">YENİ PARTİ</span>
-        <select class="yerel-cand-target" data-prov="${esc(prov)}" data-party="${esc(c.party)}" style="height:24px;border:2px solid var(--c-edge);font-weight:900;font-size:10px;padding:0 4px;background:#fff;width:150px;">
-          ${allP.filter(x=>x!==c.party).map(p=>`<option value="${esc(p)}" ${p===curTarget?'selected':''}>${esc(p)}</option>`).join('')}
-        </select>
-      </div>`:''}`;
-    }).join('')}
   </div>`;
 }
 function yerelPopHtml(prov, parties){
@@ -2997,27 +2988,29 @@ function yerelCouncilHtml(r){
   </div>`;
 }
 function yerelSettingsHtml(){
-  const vChip=(v)=>`<span style="padding:1px 7px;border:2px solid #111827;background:#F0EFED;color:#1A1A1A;font-size:10px;font-weight:900;">${v}</span>`;
+  const open=state.yerelSettingsOpen!==false;
   return `<div class="sb-card shadow" style="margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div class="sb-kicker" style="margin:0;"><div class="bar"></div><div class="t">YEREL MODEL AYARLARI</div></div>
-      <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
+      <button class="btn-side" id="yerel-set-toggle" style="height:28px;flex-shrink:0;">${open?'KAPAT ▴':'AYARLAR ▾'}</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-top:10px;">
+    ${open?`
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:10px;">
       <div style="min-width:200px;flex:1;">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>2024 TABAN AĞIRLIĞI</span>${vChip('%'+state.yerelW24)}</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>2024 TABAN AĞIRLIĞI</span><span style="color:#1A1A1A;">%${state.yerelW24}</span></div>
         <input id="yerel-w24" type="range" min="0" max="100" step="1" value="${state.yerelW24}" style="width:100%;accent-color:#111827;">
       </div>
       <div style="min-width:200px;flex:1;">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>MİNOR AKIŞ ORANI</span>${vChip('%'+state.yerelFlow)}</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>MİNOR AKIŞ ORANI</span><span style="color:#1A1A1A;">%${state.yerelFlow}</span></div>
         <input id="yerel-flow" type="range" min="0" max="80" step="1" value="${state.yerelFlow}" style="width:100%;accent-color:#111827;">
       </div>
       <div style="min-width:200px;flex:1;">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>POPÜLERLİK DESTEĞİ (2024 KAZANANI)</span>${vChip('+'+state.yerelPopBoost)}</div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>POPÜLERLİK DESTEĞİ (2024 KAZANANI)</span><span style="color:#1A1A1A;">+${state.yerelPopBoost}</span></div>
         <input id="yerel-pop" type="range" min="0" max="10" step="0.5" value="${state.yerelPopBoost}" style="width:100%;accent-color:#111827;">
       </div>
     </div>
-    <div style="font-size:10px;color:#71716E;font-weight:700;margin-top:10px;border-top:1px dashed #111827;padding-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday; kazananların yeni partilere geçişi uygulanır. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan. İttifak: ana aday olamayan üye, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:10px;color:#71716E;font-weight:700;margin-top:10px;border-top:1px dashed #111827;padding-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday; kazananların yeni partilere geçişi uygulanır. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan.</div>
+    `:''}
   </div>`;
 }
 function yerelAlliancesHtml(){
@@ -3096,8 +3089,9 @@ function renderYerel(){
   pane.innerHTML=html;
   const w24=$('#yerel-w24'); if (w24) w24.onchange=()=>{ state.yerelW24=parseFloat(w24.value); renderYerel(); };
   const flow=$('#yerel-flow'); if (flow) flow.onchange=()=>{ state.yerelFlow=parseFloat(flow.value); renderYerel(); };
-  const run=$('#yerel-run'); if (run) run.onclick=()=>{ runLocal(); renderYerel(); };
   const pop=$('#yerel-pop'); if (pop) pop.onchange=()=>{ state.yerelPopBoost=parseFloat(pop.value); renderYerel(); };
+  const setToggle=$('#yerel-set-toggle');
+  if (setToggle) setToggle.onclick=()=>{ state.yerelSettingsOpen=state.yerelSettingsOpen!==false?false:true; renderYerel(); };
   $$('#pane_yerel .yerel-ally-name').forEach(inp=>{
     inp.onchange=()=>{ state.yerelAlliances[parseInt(inp.getAttribute('data-i'),10)].name=inp.value; };
   });
