@@ -2565,9 +2565,9 @@ function runLocal(){
     if (candProv&&candProv.candidates&&candProv.candidates.length){
       const candStatus=(state.yerelCandStatus&&state.yerelCandStatus[prov])||{};
       const candPersonal=(state.yerelCandPersonal&&state.yerelCandPersonal[prov])||{};
-      const defectOn=state.yerelDefectMode==='yeni';
+      // defection list (2024 kazananlarının yeni partilere geçişi) always applied
       const defMap={};
-      if (defectOn&&YEREL_CANDIDATES.defections){
+      if (YEREL_CANDIDATES.defections){
         for (const d of YEREL_CANDIDATES.defections) if (d[0]===prov) defMap[d[1]]=d[2];
       }
       const add={};
@@ -2787,21 +2787,37 @@ function yerelDetailHtml(){
       return `<div style="display:flex;height:26px;border:2px solid #111827;background:#F0EFED;margin:0 2px 12px 2px;box-shadow:2px 2px 0 rgba(17,24,39,1);">${bar}</div>`;
     })()}
     <div style="padding:0 2px">
-      ${rows.map(([p,v])=>{
-        const maj=r.majors.indexOf(p)>=0;
-        const boost=r.popApplied&&r.popApplied[p];
-        const d24=v-(r.base2024&&r.base2024[p]||0);
-        const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
-        const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'±0';
-        return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
-          <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
+      ${(()=>{
+        const majorSet={}; for (const m of r.majors) majorSet[m]=1;
+        const bigRows=rows.filter(([p,v])=>v>=1||majorSet[p]);
+        const smallRows=rows.filter(([p,v])=>v<1&&!majorSet[p]);
+        const othersV=smallRows.reduce((a,[,v])=>a+v,0);
+        const othersB=smallRows.reduce((a,[p])=>a+(r.base2024&&r.base2024[p]||0),0);
+        const othersD=othersV-othersB;
+        const othersCol=othersD>0.05?'#1A8917':othersD<-0.05?'#E00000':'#9E9E9E';
+        const othersTxt=othersD>0.05?'+'+othersD.toFixed(1):othersD<-0.05?othersD.toFixed(1):'±0';
+        return bigRows.map(([p,v])=>{
+          const maj=majorSet[p];
+          const boost=r.popApplied&&r.popApplied[p];
+          const d24=v-(r.base2024&&r.base2024[p]||0);
+          const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
+          const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'±0';
+          return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
+            <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
+            <div style="flex:1;">
+              <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
+            </div>
+            ${boost?`<span style="height:14px;display:inline-flex;align-items:center;padding:0 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;box-sizing:border-box;">×${parseFloat(boost).toFixed(1)}</span>`:''}
+            <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)} <span style="font-size:10px;color:${dCol};">${dTxt}</span></div>
+          </div>`;
+        }).join('')+(othersV>0.05?`<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
+          <div style="width:86px;font-weight:700;font-size:12px;color:#64748B;white-space:nowrap;">DİĞER</div>
           <div style="flex:1;">
-            <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
+            <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(othersV/maxV)*100).toFixed(1)}%;background:#9E9E9E;"></div></div>
           </div>
-          ${boost?`<span style="height:14px;display:inline-flex;align-items:center;padding:0 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;box-sizing:border-box;">×${parseFloat(boost).toFixed(1)}</span>`:''}
-          <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)} <span style="font-size:10px;color:${dCol};">${dTxt}</span></div>
-        </div>`;
-      }).join('')}
+          <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${othersV.toFixed(1)} <span style="font-size:10px;color:${othersCol};">${othersTxt}</span></div>
+        </div>`:'');
+      })()}
     </div>
     ${r.dropped&&r.dropped.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:10px;border-top:2px dashed #111827;">
       <span style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1px;">ÇEKİLEN:</span>
@@ -2870,7 +2886,7 @@ function yerelMajorsHtml(r){
     </div>
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="btn-side" id="yerel-majors-auto" data-prov="${esc(r.prov)}" style="flex:1;">OTOMATİK</button>
-      <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;font-size:10px;color:#71716E;font-weight:800;letter-spacing:0.5px;">ANA ADAYLAR: ${r.majors.map(p=>`<span style="margin-left:4px;padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;">${esc(p)}</span>`).join('')}</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:4px;font-size:10px;color:#71716E;font-weight:800;letter-spacing:0.5px;">ANA ADAYLAR:${r.majors.map(p=>`<span style="padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;white-space:nowrap;">${esc(p)}</span>`).join('')}</div>
     </div>
   </div>`;
 }
@@ -2880,9 +2896,8 @@ function yerelCandidatesHtml(prov, r){
   const candStatus=(state.yerelCandStatus&&state.yerelCandStatus[prov])||{};
   const candPersonal=(state.yerelCandPersonal&&state.yerelCandPersonal[prov])||{};
   const allP=allParties();
-  const defectOn=state.yerelDefectMode==='yeni';
   const defMap={};
-  if (defectOn&&YEREL_CANDIDATES.defections){ for (const d of YEREL_CANDIDATES.defections) if (d[0]===prov) defMap[d[1]]=d[2]; }
+  if (YEREL_CANDIDATES.defections){ for (const d of YEREL_CANDIDATES.defections) if (d[0]===prov) defMap[d[1]]=d[2]; }
   const rows=cp.candidates.slice().sort((a,b)=>b.personal-a.personal);
   return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">ADAYLAR (İL)</div></div>
@@ -3002,11 +3017,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;font-weight:900;">
-      <input id="yerel-defect" type="checkbox" ${state.yerelDefectMode==='yeni'?'checked':''} style="accent-color:#111827;width:16px;height:16px;cursor:pointer;">
-      <span>2024 KAZANANLARI YENİ PARTİLERE GEÇTİ <span style="color:#71716E;font-weight:800;">(aday etkisi yeni partiye taşınır)</span></span>
-    </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday, kazananların yeni partilere geçişi açık. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday; kazananların yeni partilere geçişi uygulanır. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
@@ -3171,8 +3182,6 @@ function renderYerel(){
     if (state.yerelMajors) delete state.yerelMajors[majorsAuto.getAttribute('data-prov')];
     renderYerel();
   };
-  const defect=$('#yerel-defect');
-  if (defect) defect.onchange=()=>{ state.yerelDefectMode=defect.checked?'yeni':'off'; renderYerel(); };
   $$('#pane_yerel .yerel-cand-status').forEach(sel=>{
     sel.onchange=()=>{
       const prov=sel.getAttribute('data-prov'), p=sel.getAttribute('data-party');
