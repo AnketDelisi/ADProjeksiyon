@@ -2758,20 +2758,16 @@ function yerelDetailHtml(){
       ${rows.map(([p,v])=>{
         const maj=r.majors.indexOf(p)>=0;
         const boost=r.popApplied&&r.popApplied[p];
-        const flowIn=r.flows[p];
         const d24=v-(r.base2024&&r.base2024[p]||0);
         const dCol=d24>0.05?'#1A8917':d24<-0.05?'#E00000':'#9E9E9E';
         const dTxt=d24>0.05?'+'+d24.toFixed(1):d24<-0.05?d24.toFixed(1):'±0';
-        const subLines=[];
-        if (flowIn&&flowIn.length) subLines.push(`<div style="font-size:10px;color:#71716E;font-weight:700;margin-top:2px;">${flowIn.map(f=>`${esc(f.from)}'den +${f.amount.toFixed(1)}${f.ally?' (ittifak)':''}`).join(' · ')}</div>`);
         return `<div style="display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;">
           <div style="width:86px;font-weight:${maj?900:700};font-size:12px;color:${maj?(PARTY_COLORS[p]||'#111827'):'#64748B'};white-space:nowrap;">${esc(p)}${maj?' ★':''}</div>
           <div style="flex:1;">
             <div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${Math.min(100,(v/maxV)*100).toFixed(1)}%;background:${PARTY_COLORS[p]||'#888'};"></div></div>
-            ${subLines.join('')}
           </div>
-          ${boost?`<span style="padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;">×${parseFloat(boost).toFixed(1)}</span>`:''}
           <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${v.toFixed(1)} <span style="font-size:10px;color:${dCol};">${dTxt}</span></div>
+          ${boost?`<span style="padding:1px 6px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:10px;white-space:nowrap;">×${parseFloat(boost).toFixed(1)}</span>`:''}
         </div>`;
       }).join('')}
     </div>
