@@ -840,7 +840,6 @@ function renderMeclis(){
       </div>
     </div>
     <div class="map-frame">${state.mapHtml||emptyMap()}</div>
-    <div class="map-hint">İl üzerine gelin: oy ve vekil dağılımı · İle tıklayın: il ve ilçe düzeyinde detaylı analiz</div>
   </div>`;
 
   // 3) detail
@@ -2127,7 +2126,6 @@ function renderCB(){
     <div class="half"><div class="colstack">
       <div class="sb-kicker"><div class="bar"></div><div class="t">1. TUR ADAYLARI</div></div>
       <div class="cb-topbar"><button class="btn-side" id="cb-add-cand">Yeni Aday Ekle</button><button class="btn-side" id="cb-reset-cands">Sıfırla</button></div>
-      <div class="cb-hint">Adayların ideolojik bloklardan alacağı destek oranlarını (%) düzenleyin. Sonucu görmek için alttaki butona basın.</div>
       <div class="cand-list">${cb.cands1.map(c=>cbCandidateCardHtml(c)).join('')}</div>
       <button class="btn-calc" id="cb-round1-btn">1. TUR SONUÇLARINI &amp; HARİTASINI HESAPLA</button>
     </div></div>
@@ -2141,7 +2139,6 @@ function renderCB(){
     html+=`<div class="map-card">
       <div class="map-card-head">
         <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">1. TUR HARİTASI</div></div>
-        <div class="map-hint" style="margin:0">İle tıklayın: ilçe bazlı CB sonuçları</div>
       </div>
       <div class="map-frame">${cb.mapHtml1||emptyMap()}</div>
     </div>`;
@@ -2163,10 +2160,6 @@ function renderCB(){
     </div>`;
   }
 
-  html+=`<div class="sb-card shadow section-card" style="margin-top:16px">
-    <div style="font-size:13px;color:var(--c-text-muted)">CB haritalarından bir ile tıklayın; o ilin ilçe bazlı cumhurbaşkanlığı sonuçlarını o turun altında görürsünüz.</div>
-  </div>`;
-
   html+=`</div>`;
   pane.innerHTML=html;
 
@@ -2187,7 +2180,6 @@ function cbR2ResultsHtml(cb){
   <div class="map-card">
     <div class="map-card-head">
       <div class="sb-kicker" style="margin-bottom:0"><div class="bar"></div><div class="t">CUMHURBAŞKANLIĞI HARİTASI (2. TUR)</div></div>
-      <div class="map-hint" style="margin:0">İle tıklayın: ilçe bazlı CB sonuçları</div>
     </div>
     <div class="map-frame">${cb.mapHtml2||emptyMap()}</div>
   </div>
@@ -3009,7 +3001,6 @@ function yerelSettingsHtml(){
         <input id="yerel-pop" type="range" min="0" max="10" step="0.5" value="${state.yerelPopBoost}" style="width:100%;accent-color:#111827;">
       </div>
     </div>
-    <div style="font-size:10px;color:#71716E;font-weight:700;margin-top:10px;border-top:1px dashed #111827;padding-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı. Varsayılan: 2024 kazananı aynı aday, kaybedenler yeni aday; kazananların yeni partilere geçişi uygulanır. Geri test (2024): %93 kazanan il, oy hatası ~1.5 puan.</div>
     `:''}
   </div>`;
 }
@@ -3801,6 +3792,28 @@ function bindOlasilikEvents(){
   if (tier) tier.onchange=()=>{ state.mc.tierFilter=tier.value; renderOlasilik(); };
   const ratingsToggle=document.getElementById('mc-ratings-toggle');
   if (ratingsToggle) ratingsToggle.onclick=()=>{ state.mc.ratingsOpen=state.mc.ratingsOpen!==false?false:true; renderOlasilik(); };
+  // re-bind map tooltips after every render (karne/filter interactions rebuild the pane)
+  if ($('#map-wrapper-mc')) bindMapWrapper('mc', null);
+  // bee swarm dot tooltips (native <title> is unreliable; bind per-render)
+  let beeTip=document.getElementById('mc-bee-tip');
+  if (!beeTip){
+    beeTip=document.createElement('div');
+    beeTip.id='mc-bee-tip';
+    beeTip.style.cssText='position:fixed;display:none;z-index:9999;background:#111827;color:#FFF;font-weight:900;font-size:11px;padding:4px 8px;border:2px solid #111827;box-shadow:2px 2px 0 rgba(17,24,39,0.5);pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(beeTip);
+  }
+  $$('#pane_538 svg g').forEach(g=>{
+    const t=g.querySelector('title');
+    if (!t) return;
+    g.style.cursor='pointer';
+    g.addEventListener('mousemove',(ev)=>{
+      beeTip.textContent=t.textContent;
+      beeTip.style.display='block';
+      beeTip.style.left=(ev.clientX+12)+'px';
+      beeTip.style.top=(ev.clientY+12)+'px';
+    });
+    g.addEventListener('mouseleave',()=>{ beeTip.style.display='none'; });
+  });
 }
 function renderOlasilik(){
   const pane=$('#pane_538');
