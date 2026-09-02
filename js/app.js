@@ -70,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'off', yerelCandStatus:{}, yerelCandPersonal:{},
+  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -3006,7 +3006,7 @@ function yerelSettingsHtml(){
       <input id="yerel-defect" type="checkbox" ${state.yerelDefectMode==='yeni'?'checked':''} style="accent-color:#111827;width:16px;height:16px;cursor:pointer;">
       <span>2024 KAZANANLARI YENİ PARTİLERE GEÇTİ <span style="color:#71716E;font-weight:800;">(aday etkisi yeni partiye taşınır)</span></span>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı (başkan−meclis farkı). Geri test (2024): %100 kazanan il (varsayılan ayar); ortalama oy payı hatası ~0.5 puan. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 il meclisi (yapısal) + aday etkisi katmanı (başkan−meclis farkı). 2024 kazananlarının yeni partilere geçişi varsayılan olarak açık (kapatıp 2024'e göre geri test: %99 kazanan il, oy hatası ~0.9 puan). İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
