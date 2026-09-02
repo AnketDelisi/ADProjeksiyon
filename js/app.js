@@ -69,7 +69,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{},
+  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -2567,11 +2567,20 @@ function runLocal(){
       const tP=Object.values(final0).reduce((a,b)=>a+b,0);
       for (const p of keys) final0[p]=tP>0?final0[p]/tP*100:0;
     }
-    // majors: top 3 + any party >10pp (max 4 — 4'lü yarışlar nadirleşir)
+    // majors: manual override or auto (top 3 + >10pp, max 4).
+    // Recomputed AFTER multipliers; ÇEKİL (drop) overrides are skipped -> dynamic when candidates drop out.
+    const over=(state.yerelOverrides&&state.yerelOverrides[prov])||{};
     const ranked=Object.entries(final0).sort((a,b)=>b[1]-a[1]);
-    const majors=[];
-    for (let i=0;i<Math.min(3,ranked.length);i++) majors.push(ranked[i][0]);
-    for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4) majors.push(p); }
+    const manualMajors=(state.yerelMajors&&state.yerelMajors[prov])||null;
+    let majors=[];
+    if (manualMajors&&manualMajors.length){
+      majors=manualMajors.filter(p=>over[p]!=='drop'&&(final0[p]||0)>0).slice(0,4);
+      for (const [p,v] of ranked){ if (v>0&&over[p]!=='drop'&&majors.length<2&&majors.indexOf(p)<0) majors.push(p); }
+    }else{
+      for (const [p,v] of ranked){ if (over[p]!=='drop' && majors.length<3) majors.push(p); }
+      for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4 && over[p]!=='drop' && majors.indexOf(p)<0) majors.push(p); }
+      if (majors.length<2){ for (const [p,v] of ranked) if (majors.indexOf(p)<0&&over[p]!=='drop'&&v>0&&majors.length<2) majors.push(p); }
+    }
     for (const p of majors) state._yerelMajorUnion[p]=1;
     // alliance dropout: minor alliance members fully support their qualifying partners.
     // Per-province overrides: state.yerelOverrides[prov][party] = 'drop' | 'stay' | auto
@@ -2580,7 +2589,6 @@ function runLocal(){
     for (const aly of Object.keys(allysObj)){
       for (const p of allysObj[aly]){ allyMap[p]=aly; }
     }
-    const over=(state.yerelOverrides&&state.yerelOverrides[prov])||{};
     const running=new Set(majors);
     for (const p of keys){ if (over[p]==='stay') running.add(p); }
     const dropSet=new Set();
@@ -2660,7 +2668,7 @@ function runLocal(){
     out[prov]={prov, winner:sortedF[0][0], winnerPct:sortedF[0][1],
       margin:sortedF.length>1?sortedF[0][1]-sortedF[1][1]:sortedF[0][1],
       second:sortedF.length>1?sortedF[1][0]:'',
-      shares:final, base, majors, flows, council, councilTotal, dropped, popApplied:Object.keys(pop).length?pop:null, big:BUYUKSEHIR[prov]?1:0,
+      shares:final, base, majors, flows, council, councilTotal, dropped, popApplied:Object.keys(pop).length?pop:null, majorsManual:!!(manualMajors&&manualMajors.length), big:BUYUKSEHIR[prov]?1:0,
       incumbent:YEREL_2024.winners[prov]||''};
   }
   const counts={}, bigCounts={};
@@ -2735,6 +2743,17 @@ function yerelDetailHtml(){
       ${yerelTierChip(provTier(r.margin))}
       <span style="margin-left:auto;color:#71716E;">2024 kazananı: <span style="color:${inc}">${esc(r.incumbent)}</span></span>
     </div>
+    ${(()=>{
+      const majorsOnly=r.majors.filter(p=>(r.shares[p]||0)>0);
+      const others=Object.entries(r.shares).filter(([p])=>majorsOnly.indexOf(p)<0).reduce((a,[,v])=>a+v,0);
+      const segs=majorsOnly.map(p=>({p, v:r.shares[p]}));
+      if (others>0.05) segs.push({p:'DİĞER', v:others});
+      const bar=segs.map(s=>{
+        const col=s.p==='DİĞER'?'#9E9E9E':(PARTY_COLORS[s.p]||'#888');
+        return `<div style="flex:${s.v.toFixed(2)};background:${col};display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap;">${s.v>=3?`<span style="font-weight:900;font-size:9px;color:#FFF;letter-spacing:0.5px;padding:0 3px;">${esc(s.p)} %${s.v.toFixed(1)}</span>`:''}</div>`;
+      }).join('');
+      return `<div style="display:flex;height:26px;border:2px solid #111827;background:#F0EFED;margin:0 2px 12px 2px;box-shadow:2px 2px 0 rgba(17,24,39,1);">${bar}</div>`;
+    })()}
     <div style="padding:0 2px">
       ${rows.map(([p,v])=>{
         const maj=r.majors.indexOf(p)>=0;
@@ -2760,6 +2779,7 @@ function yerelDetailHtml(){
   </div>`;
   html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;width:100%;margin-top:12px;">`;
   html+=yerelAllyOverridesHtml(r.prov);
+  html+=yerelMajorsHtml(r);
   html+=yerelPopHtml(r.prov, rows.map(x=>x[0]));
   html+=`</div>`;
   html+=yerelCouncilHtml(r);
@@ -2795,27 +2815,48 @@ function yerelAllyOverridesHtml(prov){
     ${groups.join('')}
   </div>`;
 }
+function yerelMajorsHtml(r){
+  const manual=(state.yerelMajors&&state.yerelMajors[r.prov])||null;
+  const isMan=manual&&manual.length?true:false;
+  const cands=Object.entries(r.shares).filter(x=>x[1]>0.5).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
+    <div class="sb-kicker"><div class="bar"></div><div class="t">ANA ADAYLAR (İL)${isMan?' — MANUEL':''}</div></div>
+    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Otomatik: en güçlü 3 + %10 üzeri (en fazla 4). Çekilen aday otomatik atlanır; çarpan ekleyince yeniden hesaplanır. Partileri işaretleyerek manuel seçim yapabilirsiniz.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${cands.map(([p,v])=>{
+        const checked=isMan?manual.includes(p):r.majors.indexOf(p)>=0;
+        return `<label style="display:flex;align-items:center;gap:5px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};padding:3px 7px;cursor:pointer;color:#FFF;font-weight:900;font-size:11px;">
+          <input type="checkbox" class="yerel-majors-cb" data-prov="${esc(r.prov)}" data-party="${esc(p)}" ${checked?'checked':''} style="accent-color:#111827;cursor:pointer;">
+          ${esc(p)} <span style="opacity:.85;font-size:9px;">%${v.toFixed(1)}</span>
+        </label>`;
+      }).join('')}
+    </div>
+    <button class="btn-side" id="yerel-majors-auto" data-prov="${esc(r.prov)}" style="height:28px;margin-top:8px;">OTOMATİK</button>
+  </div>`;
+}
 function yerelPopHtml(prov, parties){
   const pop=(state.yerelPop&&state.yerelPop[prov])||{};
-  const curEntry=Object.entries(pop).find(([p,m])=>m>0)||[];
-  const curParty=curEntry[0]||'';
-  const curMult=curEntry[1]||1;
+  const entries=Object.entries(pop).filter(([p,m])=>m>0&&m!==1);
   return `<div class="sb-card shadow" style="flex:1;min-width:300px;width:100%;margin:0;">
     <div class="sb-kicker"><div class="bar"></div><div class="t">POPÜLERLİK ÇARPANI (İL)</div></div>
-    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Adayın yerel popülaritesi: seçtiğiniz partinin bu ildeki oyu çarpanla artırılır.</div>
-    ${curParty?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;border:2px solid #111827;background:#F7F7F5;box-shadow:2px 2px 0 rgba(17,24,39,1);">
-      <span style="font-weight:900;font-size:10px;color:var(--c-text-muted);letter-spacing:1px;">AKTİF ÇARPAN</span>
-      <span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[curParty]||'#888'};color:#FFF;font-weight:900;font-size:11px;">${esc(curParty)} ×${parseFloat(curMult).toFixed(1)}</span>
+    <div style="font-size:11px;color:var(--c-text-muted);margin:6px 0 8px 0;">Adayın yerel popülaritesi: parti seçin, çarpanı girin ve 'EKLE' ile kaydedin. Eklenen çarpanlar aşağıda listelenir.</div>
+    ${entries.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+      ${entries.map(([p,m])=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border:2px solid #111827;background:#F7F7F5;box-shadow:2px 2px 0 rgba(17,24,39,1);">
+        <span style="display:inline-block;padding:2px 8px;border:2px solid #111827;background:${PARTY_COLORS[p]||'#888'};color:#FFF;font-weight:900;font-size:11px;">${esc(p)} ×${parseFloat(m).toFixed(1)}</span>
+        <span style="font-size:10px;color:#71716E;font-weight:700;">${esc(p)} oyu ${parseFloat(m).toFixed(1)} kat</span>
+        <button class="btn-side yerel-pop-rm" data-prov="${esc(prov)}" data-party="${esc(p)}" style="height:24px;margin-left:auto;padding:0 8px;font-size:10px;">Kaldır</button>
+      </div>`).join('')}
     </div>`:''}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
       <select id="yerel-pop-party" data-prov="${esc(prov)}" style="height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;padding:0 6px;background:#fff;">
         <option value="">— Parti seç —</option>
-        ${parties.map(p=>`<option value="${esc(p)}" ${p===curParty?'selected':''}>${esc(p)}</option>`).join('')}
+        ${parties.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('')}
       </select>
       <div style="display:flex;align-items:center;gap:6px;">
         <span style="font-weight:900;font-size:11px;color:var(--c-text-muted);">ÇARPAN</span>
-        <input id="yerel-pop-mult" type="number" min="0.5" max="3" step="0.1" value="${curMult}" style="width:70px;height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;text-align:center;background:#fff;">
+        <input id="yerel-pop-mult" type="number" min="0.5" max="3" step="0.1" value="1.2" style="width:70px;height:32px;border:2px solid var(--c-edge);font-weight:900;font-size:12px;text-align:center;background:#fff;">
       </div>
+      <button class="btn-calc" id="yerel-pop-add" data-prov="${esc(prov)}" style="height:32px;">EKLE</button>
       <button class="btn-side" id="yerel-pop-clear" data-prov="${esc(prov)}" style="height:32px;">Temizle</button>
     </div>
   </div>`;
@@ -3006,21 +3047,51 @@ function renderYerel(){
       renderYerel();
     };
   });
-  const popParty=$('#yerel-pop-party'), popMult=$('#yerel-pop-mult');
+  const popParty=$('#yerel-pop-party'), popMult=$('#yerel-pop-mult'), popAdd=$('#yerel-pop-add');
   const setPop=()=>{
+    if (!popParty||!popMult) return;
     const prov=popParty.getAttribute('data-prov');
+    const party=popParty.value;
+    if (!party) return;
+    const m=parseFloat(popMult.value)||1;
     if (!state.yerelPop) state.yerelPop={};
     if (!state.yerelPop[prov]) state.yerelPop[prov]={};
-    const party=popParty.value;
-    if (!party){ delete state.yerelPop[prov]; return; }
-    state.yerelPop[prov][party]=parseFloat(popMult.value)||1;
+    if (m>0 && m!==1) state.yerelPop[prov][party]=m;
+    else delete state.yerelPop[prov][party];
   };
-  if (popParty) popParty.onchange=()=>{ setPop(); renderYerel(); };
-  if (popMult) popMult.onchange=()=>{ setPop(); renderYerel(); };
+  if (popAdd) popAdd.onclick=()=>{ setPop(); renderYerel(); };
+  $$('#pane_yerel .yerel-pop-rm').forEach(btn=>{
+    btn.onclick=()=>{
+      const prov=btn.getAttribute('data-prov'), party=btn.getAttribute('data-party');
+      if (state.yerelPop&&state.yerelPop[prov]){ delete state.yerelPop[prov][party]; if (!Object.keys(state.yerelPop[prov]).length) delete state.yerelPop[prov]; }
+      renderYerel();
+    };
+  });
   const popClear=$('#yerel-pop-clear');
   if (popClear) popClear.onclick=()=>{
     const prov=popClear.getAttribute('data-prov');
     if (state.yerelPop) delete state.yerelPop[prov];
+    renderYerel();
+  };
+  $$('#pane_yerel .yerel-majors-cb').forEach(cb=>{
+    cb.onchange=()=>{
+      const prov=cb.getAttribute('data-prov'), p=cb.getAttribute('data-party');
+      if (!state.yerelMajors) state.yerelMajors={};
+      let arr=(state.yerelMajors[prov]||[]).slice();
+      if (!state.yerelMajors[prov]){
+        const r=state.yerelResults&&state.yerelResults.provs[prov];
+        arr=(r&&r.majors?r.majors.slice():[]);
+      }
+      const idx=arr.indexOf(p);
+      if (cb.checked && idx<0) arr.push(p);
+      if (!cb.checked && idx>=0) arr.splice(idx,1);
+      if (arr.length) state.yerelMajors[prov]=arr; else delete state.yerelMajors[prov];
+      renderYerel();
+    };
+  });
+  const majorsAuto=$('#yerel-majors-auto');
+  if (majorsAuto) majorsAuto.onclick=()=>{
+    if (state.yerelMajors) delete state.yerelMajors[majorsAuto.getAttribute('data-prov')];
     renderYerel();
   };
   $$('#pane_yerel .sb-collapse-head').forEach(h=>{
