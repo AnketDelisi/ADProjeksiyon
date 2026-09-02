@@ -16,7 +16,7 @@ let ILCE_NAMES = null;          // ilce_names.json {provinces:{p|i:name}, global
 let SVG_TURKIYE2 = "";          // turkiye2.svg raw (province-level map)
 let YEREL_2024 = null;          // yerel_2024.json {provinces:{p:{party:pct}}, nat, winners}
 let BUYUKSEHIR = {};            // set of büyükşehir province norm ids
-let YEREL_TARGETS = null;       // yerel_targets.json {alias:{YENI:'CHP'}, defections:[[prov,from,to],...]}
+let YEREL_TARGETS = null;       // yerel_targets.json: alias (YENI->CHP) winner scoring; defections baked into base at generation
 let BELEDIYE_MECLIS = null;     // belediye_meclis.json {provNorm: councilSeats}
 const ILCE_CACHE = {};          // prov -> {norm:{name,parties:{P:{v18,v23,v24}}}}
 const ILCE_SVG_CACHE = {};      // prov -> raw svg
@@ -2522,8 +2522,8 @@ function yerelAlliancesObj(){
 function runLocal(){
   if (!YEREL_2024) return;
   const un=userNorm();
-  const w24=clamp(parseFloat(state.yerelW24)||30,0,100)/100;
-  const flowRate=clamp(parseFloat(state.yerelFlow)||25,0,80)/100;
+  const w24=clamp(Number.isFinite(parseFloat(state.yerelW24))?parseFloat(state.yerelW24):30,0,100)/100;
+  const flowRate=clamp(Number.isFinite(parseFloat(state.yerelFlow))?parseFloat(state.yerelFlow):25,0,80)/100;
   const matrix=yerelMatrix();
   const blocs=yerelBlocs();
   // synthesized national reference: breakoffs added on top of official 2024 (no deduction)
@@ -2674,9 +2674,11 @@ function runLocal(){
       incumbent:YEREL_2024.winners[prov]||''};
   }
   const counts={}, bigCounts={};
+  const alias=(YEREL_TARGETS&&YEREL_TARGETS.alias)||{};
   for (const prov of Object.keys(out)){
-    counts[out[prov].winner]=(counts[out[prov].winner]||0)+1;
-    if (out[prov].big) bigCounts[out[prov].winner]=(bigCounts[out[prov].winner]||0)+1;
+    const w=alias[out[prov].winner]||out[prov].winner;
+    counts[w]=(counts[w]||0)+1;
+    if (out[prov].big) bigCounts[w]=(bigCounts[w]||0)+1;
   }
   state.yerelResults={provs:out, counts, bigCounts, ts:Date.now()};
 }
@@ -2891,7 +2893,7 @@ function yerelSettingsHtml(){
       </div>
       <button class="btn-calc" id="yerel-run" style="flex-shrink:0;">YEREL SONUÇLARI HESAPLA</button>
     </div>
-    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 yerel il sonuçları (ilçe ortalaması + 26 il düzeltmesi). Geri test (2024): %91. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
+    <div style="font-size:11px;color:#71716E;font-weight:700;margin-top:6px;">Taban: 2024 YSK il meclis sonuçları + belediye başkanı verisi karışımı (%50/%50; büyükşehir: il geneli, diğer: merkez ilçe). Geri test (2024, taban %100): %89. İttifak mekanizması: ana aday olamayan ittifak partisi, ittifak ortağına tam destek verir.</div>
   </div>`;
 }
 function yerelAlliancesHtml(){
