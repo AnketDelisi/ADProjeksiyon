@@ -114,7 +114,7 @@ body{background:var(--c-bg);color:var(--c-text-main);font-family:var(--font);fon
 .tab-trigger:hover{color:var(--c-accent-2)}
 .tab-trigger[data-active="true"]{color:#FFFFFF;background:#111827}
 .tab-social{
-  margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;
+  margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;
   color:#FFFFFF;background:#111827;border:2px solid #111827;text-decoration:none;
   font-family:var(--font);font-size:12px;font-weight:900;letter-spacing:0.4px;
   padding:10px 14px 8px 14px;transition:background 90ms ease, color 90ms ease;
@@ -424,6 +424,32 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 [style*="font-variant-numeric:tabular-nums"]{font-family:var(--font-mono)}
 input.vote-input,input.sb-in,input.cb-num,.cb-block-tot,.cb-vote,.tip-pct,.tot-amt,.tot-note,.val,.cp-slider-row .val{font-family:var(--font-mono)}
 td[style*="text-align:right"]{font-family:var(--font-mono)}
+
+/* ---------- Neobrutalist range sliders ---------- */
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  height:20px;background:transparent;cursor:pointer;
+}
+input[type=range]:focus{outline:none}
+input[type=range]::-webkit-slider-runnable-track{
+  height:8px;background:#F0EFED;border:2px solid #111827;border-radius:0;box-shadow:2px 2px 0 rgba(17,24,39,1);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:18px;height:18px;background:#111827;border:2px solid #111827;border-radius:0;
+  margin-top:-7px;box-shadow:2px 2px 0 rgba(17,24,39,1);
+}
+input[type=range]::-moz-range-track{
+  height:8px;background:#F0EFED;border:2px solid #111827;border-radius:0;box-shadow:2px 2px 0 rgba(17,24,39,1);
+}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;background:#111827;border:2px solid #111827;border-radius:0;box-shadow:2px 2px 0 rgba(17,24,39,1);
+}
+/* yeni parti kartı: kaydırıcı ve başparmak partinin renginde */
+#cp-slider::-webkit-slider-runnable-track{background:var(--cp-color,#F0EFED)}
+#cp-slider::-webkit-slider-thumb{background:var(--cp-color,#111827);border-color:var(--cp-color,#111827)}
+#cp-slider::-moz-range-track{background:var(--cp-color,#F0EFED)}
+#cp-slider::-moz-range-thumb{background:var(--cp-color,#111827);border-color:var(--cp-color,#111827)}
 
 /* ---------- Mobile: tabs scroll instead of overflow ---------- */
 @media (max-width:768px){

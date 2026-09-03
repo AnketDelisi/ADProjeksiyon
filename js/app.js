@@ -1132,7 +1132,7 @@ function newPartyHtml(){
   <div class="sb-kicker"><div class="bar"></div><div class="t">TABAN KAYNAKLARI</div></div>
   <div class="cp-source"><select id="cp-src">${allP.map(p=>`<option ${p===sel?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
   <div class="cp-slider-row"><span class="name" style="color:${PARTY_COLORS[sel]||'#111827'}">${esc(sel)}</span>
-    <input type="range" id="cp-slider" min="0" max="100" step="1" value="${pct}">
+    <input type="range" id="cp-slider" min="0" max="100" step="1" value="${pct}" style="--cp-color:${PARTY_COLORS[sel]||'#111827'};accent-color:${PARTY_COLORS[sel]||'#111827'}">
     <span class="val" style="color:${pct>0?(PARTY_COLORS[sel]||'#111827'):'#64748B'}">${pct}%</span>
   </div>
   <button class="btn-add" id="btn-add-cp" style="margin-top:0">Partiyi Ekle</button>
