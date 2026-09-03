@@ -2273,7 +2273,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
   if (!sortedPartyRows.length) sortedPartyRows.push(...summaryRows.slice(0,4));
   const cardSize=80, cardSpacing=22;
   const startX=(1200-(sortedPartyRows.length*cardSize+(sortedPartyRows.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="1100" viewBox="0 0 1200 1100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   for (const [alyName,sIdx,eIdx] of blockSpans){
     const bx1=startX+sIdx*(cardSize+cardSpacing), bx2=startX+eIdx*(cardSize+cardSpacing)+cardSize;
     let displayAly=alyName;
@@ -2307,7 +2307,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     }
   }
   points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
-  svg+='<g transform="translate(930, 1095) scale(0.78)">';
+  svg+='<g transform="translate(930, 980) scale(0.78)">';
   for (let i=0;i<assignedParties.length;i++){
     if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
@@ -2465,7 +2465,7 @@ async function generateYerelInfographicSvg(title, partiesData, mapSvgClean){
     svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${d.wins}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${d.inputShare.toFixed(2)}</text>`;
   }
   svg+=`<svg x="30" y="205" width="1120" height="635">${mapSvgClean}</svg>`;
-  svg+=await appLogoInline(40,1060,280,32);
+  svg+=await appLogoInline(40,932,280,32);
   svg+='</svg>';
   return svg;
 }
