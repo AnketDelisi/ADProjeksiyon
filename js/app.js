@@ -114,16 +114,6 @@ function displayUserNat(){
   for (const um of Object.keys(jl)) for (const jp of jl[um]){ out[um]=(out[um]||0)+(out[jp]||0); out[jp]=0; }
   return out;
 }
-function baseRowsFromObj(baseObj){
-  // rebuild base_df rows {district, party, base_vote_pct, seat_count}
-  const rows = [];
-  for (const key of Object.keys(baseObj.base)){
-    const parts = key.split('|');
-    rows.push({district:parts[0], party:parts[1], base_vote_pct: baseObj.base[key], seat_count: baseObj.seats[parts[0]]||0});
-  }
-  return rows;
-}
-
 // ---------------- logo helper ----------------
 function logoURL(p){ return 'data/logos/'+encodeURIComponent(p)+'.svg'; }
 function logoImg32(p, altClass){
@@ -134,6 +124,10 @@ function logoImg32(p, altClass){
 function runSimulation(){
   const un = userNorm();
   if (Object.values(un).reduce((a,b)=>a+b,0)<=0) return;
+  // model-inputs signature: skip the whole sim when only display state changed
+  const sig=JSON.stringify([state.w18,state.w23,state.w24,state.userInputs,state.customPartiesDef,state.allianceList,state.jointList,state.threshold,state.allocation]);
+  if (state._genelSig===sig && state.fullResults.length){ renderCurrentTab(); return; }
+  state._genelSig=sig;
   const baseObj = _weightedBase(state.w18, state.w23, state.w24, state.customPartiesDef);
   const allP = allParties();
   state.baseNat = baseObj.nat;
@@ -148,7 +142,7 @@ function runSimulation(){
   state.mapHtml = buildMapHtml(res, 'genel', 'hidden_prov_input', 'prov_detail_section');
 
   // swing analysis
-  computeSwing(baseObj, un);
+  computeSwing();
 
   // summary
   state.summaryRows = nationalSummaryRows();
@@ -577,15 +571,6 @@ function entityWin(entities, votes){
   return best;
 }
 function entitySum(e, entities, votes){ return (entities[e]||[]).reduce((a,p)=>a+(votes[p]||0),0); }
-function colorKeyForEntity(entity, votes, entities, alliances){
-  if (!entity) return '#888';
-  if (entity in alliances){
-    const parts=entities[entity];
-    let rep=parts[0]; for (const p of parts) if ((votes[p]||0)>(votes[rep]||0)) rep=p;
-    return rep;
-  }
-  return entity;
-}
 function mpRegionColor(agg){
   const sig=[...agg].sort((a,b)=> (b.seats-a.seats)||(b.pct-a.pct));
   const first=sig[0]; const fp=first.party, fseats=first.seats;
@@ -876,7 +861,7 @@ function renderMeclis(){
 
   // swing target + collapse
   const st=$('#swing-target');
-  if (st) st.addEventListener('change',()=>{ state.targetPartySwing=st.value; runSimulation(); });
+  if (st) st.addEventListener('change',()=>{ state.targetPartySwing=st.value; computeSwing(); renderCurrentTab(); });
   $$('.sb-collapse-head').forEach(h=>h.addEventListener('click',()=>{
     const k=h.getAttribute('data-key');
     state.collapse[k]=!state.collapse[k];
@@ -1448,11 +1433,6 @@ function clearDetailIlce(){
   state.detailIlce="";
   renderMeclis();
 }
-function clearDetailProv(){
-  state.detailProv="";
-  state.detailIlce="";
-  renderMeclis();
-}
 
 function detailSectionHtml(){
   if (!state.detailProv) return `<div class="sb-card shadow section-card" style="padding:14px"><div style="font-weight:900;font-size:12px;color:#64748B;">Dinamik il detayı: Haritada bir ile tıklayın.</div></div>`;
@@ -1602,7 +1582,6 @@ function bindSegNav(){
 
 function cssSafe(s){ return s.replace(/[^A-Za-z0-9_-]/g,'_'); }
 window.__clearIlce = ()=>clearDetailIlce();
-window.__clearProv = ()=>clearDetailProv();
 
 // ---------------- CB (CUMHURBAŞKANLIĞI) full port ----------------
 function cbDetailBlank(){ return {prov:"",name:"",summary:[],mapHtml:"",tabLabels:[],barsMap:{},activeTab:"",activeBars:[],ilceSelected:"",ilceName:"",ilceBarsMap:{}}; }

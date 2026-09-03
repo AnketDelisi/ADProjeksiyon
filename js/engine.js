@@ -13,7 +13,6 @@ function _clamp(){ const c=_cfg(); return c ? c.clamp : clamp; }
 function _sig(){ const c=_cfg(); return c ? c.sig : sig; }
 function getDISTRICTS(){ return (typeof module!=='undefined') ? globalThis.DISTRICTS : window.DISTRICTS; }
 function getBASEYEARS(){ return (typeof module!=='undefined') ? globalThis.BASE_YEARS : window.BASE_YEARS; }
-function _getDisplayName(x){ const c=_cfg(); return c ? c.get_display_name(x) : get_display_name(x); }
 function _normId(x){ const c=_cfg(); return c ? c.normalize_id(x) : normalize_id(x); }
 
 // all_parties ordering: OZEL_SIRA first, then any remaining base/custom parties
