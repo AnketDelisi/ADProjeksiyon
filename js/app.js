@@ -2292,27 +2292,27 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${vote.toFixed(2)}</text>`;
   }
   svg+=`<svg x="20" y="190" width="1160" height="685">${mapSvgClean}</svg>`;
-  // parliament: wide shallow arc fitted below the map (map bottom = 875, canvas 980)
-  const rings=[]; for (let i=0;i<14;i++) rings.push({rx:60+i*((225-60)/13), ry:30+i*((80-30)/13)});
-  const ringW=rings.map(r=>(r.rx+r.ry)/2);
-  let seatsPerRow=rings.map((r,i)=>Math.round(totalSeats*(ringW[i]/ringW.reduce((a,b)=>a+b,0))));
+  // parliament: original shape, uniformly scaled down (s=0.32) to fit below the map
+  const radii=[]; for (let r=130;r<265;r+=10) radii.push(r);
+  let seatsPerRow=radii.map(r=>Math.round(totalSeats*(r/radii.reduce((a,b)=>a+b,0))));
   const spSum=seatsPerRow.reduce((a,b)=>a+b,0);
   if (spSum!==totalSeats) seatsPerRow[seatsPerRow.length-1]+=(totalSeats-spSum);
   const points=[];
-  for (let ri=0;ri<rings.length;ri++){
-    const {rx,ry}=rings[ri], s=seatsPerRow[ri];
+  for (let ri=0;ri<radii.length;ri++){
+    const r=radii[ri], s=seatsPerRow[ri];
     if (s<=0) continue;
     for (let j=0;j<s;j++){
       const angle=Math.PI-(Math.PI*j)/Math.max(1,(s-1));
-      points.push({x:rx*Math.cos(angle), y:ry*Math.sin(angle), angle, rx});
+      points.push({x:r*Math.cos(angle), y:r*Math.sin(angle), angle, r});
     }
   }
-  points.sort((a,b)=> (b.angle-a.angle) || (b.rx-a.rx));
-  svg+='<g transform="translate(930, 975)">';
+  points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
+  svg+='<g transform="translate(930, 978) scale(0.32)">';
   for (let i=0;i<assignedParties.length;i++){
-    if (i<points.length) svg+=`<circle cx="${points[i].x.toFixed(1)}" cy="${(-points[i].y).toFixed(1)}" r="4.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
+    if (i<points.length) svg+=`<circle cx="${points[i].x.toFixed(1)}" cy="${(-points[i].y).toFixed(1)}" r="1.6" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
-  svg+=`<text x="0" y="-85" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="0" y1="-80" x2="0" y2="-12" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="0" y="-3" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A">${totalSeats}</text></g>`;
+  svg+='</g>';
+  svg+=`<text x="930" y="891" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="930" y1="894" x2="930" y2="938" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="930" y="973" text-anchor="middle" font-size="34" font-weight="900" fill="#1A1A1A">${totalSeats}</text>`;
   svg+=await appLogoInline(40,932,280,32);
   svg+='</svg>';
   return svg;
