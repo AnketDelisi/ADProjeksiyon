@@ -421,7 +421,7 @@ function buildMapHtml(res, uid, hiddenInput, detailSection){
     for (const prov of Object.keys(byProv)){
       const group=byProv[prov];
       const nrm = normalize_id(prov);
-      const agg=aggRows(group);
+      const agg=aggRowsWeighted(group);
       const top5=agg.filter(r=>r.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,5);
       const seatSum=group.reduce((a,r)=>a+r.seats_won,0);
       let html=`<div class="tip-header">${to_tr_upper(get_display_label(prov))}<span class="tip-total">${seatSum} MİLLETVEKİLİ</span></div>`;
@@ -483,6 +483,17 @@ function aggRows(group){
   for (const r of group){ if(!m[r.p]) m[r.p]={party:r.p, pct:0, seats:0}; m[r.p].pct+=r.new_vote_pct; m[r.p].seats+=r.seats_won; }
   return Object.values(m).map(o=>({party:o.party,pct:o.pct,seats:o.seats}));
 }
+function aggRowsWeighted(group){
+  // Çok bölgeli illerde (istanbul/ankara/izmir/bursa) yüzdeler her seçim bölgesine
+  // özeldir; il geneli toplamı yüzdelerin toplamı DEĞİL, bölge milletvekili
+  // sayılarıyla ağırlıklı ortalamadır.
+  const dSeats={};
+  for (const r of group) if (!(r.d in dSeats)) dSeats[r.d]=r.seat_count||0;
+  const tot=Object.values(dSeats).reduce((a,b)=>a+b,0)||1;
+  const m={};
+  for (const r of group){ if(!m[r.p]) m[r.p]={party:r.p, pct:0, seats:0}; m[r.p].pct+=r.new_vote_pct*((dSeats[r.d]||0)/tot); m[r.p].seats+=r.seats_won; }
+  return Object.values(m).map(o=>({party:o.party,pct:o.pct,seats:o.seats}));
+}
 function buildAllianceBadges(df){
   const badges={};
   const natVotes={}; for (const r of df) natVotes[r.p]=(natVotes[r.p]||0)+r.new_vote_pct;
@@ -521,7 +532,7 @@ function buildEntityMapData(df, provWinners, distWinners, customColors, tooltipD
   for (const r of df){ (byProv[r.province]=byProv[r.province]||[]).push(r); (byDist[r.d]=byDist[r.d]||[]).push(r); }
   for (const prov of Object.keys(byProv)){
     const group=byProv[prov]; const nrm=normalize_id(prov);
-    const agg=aggRows(group);
+    const agg=aggRowsWeighted(group);
     const seatSum=group.reduce((a,r)=>a+r.seats_won,0);
     const title=`${to_tr_upper(prov)}<span class="tip-total">${seatSum} MİLLETVEKİLİ</span>`;
     tooltipDict[nrm]=tooltipHtmlFromRows(title, tooltipGroupRows(agg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:o.seats}))));
@@ -1224,8 +1235,8 @@ function setDetailProvince(prov){
   const provDf=full.filter(r=>String(r.province).replace(/\d+$/,'').startsWith(prov) || normalize_id(r.province).startsWith(prov));
   if (!provDf.length) return;
   const dName=get_display_label(prov);
-  // aggregate
-  const agg=aggRows(provDf);
+  // aggregate (seat-weighted — multi-region provinces must not sum percentages)
+  const agg=aggRowsWeighted(provDf);
   const topParties=[...agg].filter(o=>o.pct>0).sort((a,b)=>(b.seats-a.seats)||(b.pct-a.pct));
   state.detailProvSummary=topParties.filter(o=>o.pct>0.5||o.seats>0).map(o=>({party:o.party, seats:String(o.seats), vote:`%${o.pct.toFixed(1)}`, color:PARTY_COLORS[o.party]||'#888'}));
   const provDistricts=[...new Set(provDf.map(r=>r.d))].sort();
@@ -1274,11 +1285,18 @@ async function ensureBase2023(){
 }
 function base2023ForProv(prov){
   const rows=BASE2023||[];
-  const bVotes={}, bSeats={}, byDist={};
+  const bVotes={}, bSeats={}, byDist={}, dSeats={};
   for (const r of rows){
     if (String(r.prov)===prov){
-      bVotes[r.p]=(bVotes[r.p]||0)+r.pct;
+      dSeats[r.d]=r.stotal||0;
       bSeats[r.p]=(bSeats[r.p]||0)+r.seats;
+    }
+  }
+  const totSeats=Object.values(dSeats).reduce((a,b)=>a+b,0)||1;
+  for (const r of rows){
+    if (String(r.prov)===prov){
+      // il geneli: bölge yüzdelerinin milletvekili ağırlıklı ortalaması (toplam değil)
+      bVotes[r.p]=(bVotes[r.p]||0)+r.pct*((dSeats[r.d]||0)/totSeats);
     }
   }
   for (const r of rows){
@@ -2215,7 +2233,7 @@ function infoTurkeyMapHtml(){
   for (const r of df) (byProv[r.province]=byProv[r.province]||[]).push(r);
   for (const prov of Object.keys(byProv)){
     const nrm=normalize_id(prov);
-    const agg=aggRows(byProv[prov]);
+    const agg=aggRowsWeighted(byProv[prov]);
     const top=agg.filter(o=>o.pct>0).sort((a,b)=>b.pct-a.pct)[0];
     if (!top) continue;
     provWinners[nrm]=top.party;
@@ -2390,7 +2408,7 @@ async function downloadMecIlInfographic(){
   const df=state.fullResults;
   const provDf=df.filter(r=>normalize_id(r.province)===state.detailProv||String(r.province).replace(/\d+$/,'')===state.detailProv);
   if (!provDf.length) return;
-  const agg=aggRows(provDf);
+  const agg=aggRowsWeighted(provDf);
   const topByVote=[...agg].sort((a,b)=>b.pct-a.pct).slice(0,5).map(o=>o.party);
   const seatWinners=agg.filter(o=>o.seats>0).map(o=>o.party);
   const keep=[]; for (const p of topByVote.concat(seatWinners)) if (keep.indexOf(p)<0) keep.push(p);
