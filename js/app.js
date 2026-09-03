@@ -3245,7 +3245,7 @@ function buildTrendSvg(df, tabloPartileri){
   const yMax=(Number.isFinite(allMax))? allMax+5.0 : 1.0;
   const sxMs=(t)=>padL+((t-tsMin)/86400000/spanDays)*(w-padL-padR);
   const sy=(v)=>h-padB-(v/yMax)*(h-padT-padB);
-  let svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg" style="background:#FFFFFF; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">`;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg" style="background:#FFFFFF; font-family:'Decima Mono Pro','Helvetica Neue', Helvetica, Arial, sans-serif;">`;
   for (let k=0;k<6;k++){
     const gv=yMax*k/5;
     const gy=sy(gv);

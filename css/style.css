@@ -15,8 +15,30 @@
   --sidebar-input-bg:#FFFFFF;
   --sidebar-input-border:#CBD5E1;
   --font:'Atlas Grotesk','Nunito Sans','Inter','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --font-mono:'Decima Mono Pro','Atlas Grotesk','Nunito Sans',monospace;
   --shadow-big:5px 5px 0 rgba(17,24,39,1);
   --shadow-md:3px 3px 0 rgba(17,24,39,1);
+}
+@font-face{
+  font-family:'Decima Mono Pro';
+  font-style:normal;
+  font-weight:300;
+  src:url('../fonts/DecimaMonoPro-Light.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Decima Mono Pro';
+  font-style:normal;
+  font-weight:400;
+  src:url('../fonts/DecimaMonoPro-Regular.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Decima Mono Pro';
+  font-style:normal;
+  font-weight:500 900;
+  src:url('../fonts/DecimaMonoPro-Bold.woff2') format('woff2');
+  font-display:swap;
 }
 @font-face{
   font-family:'Atlas Grotesk';
@@ -76,6 +98,7 @@ body{background:var(--c-bg);color:var(--c-text-main);font-family:var(--font);fon
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 .tab-pane-inner{max-width:1400px;width:100%;margin:0 auto;padding:28px 16px 40px 16px}
+
 
 /* ---------- Segmented nav (tabs) ---------- */
 .seg-nav{
@@ -307,7 +330,7 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 
 /* ---------- Province results table ---------- */
 .prov-wrap{overflow-x:auto;border:2px solid #111827;background:#fffffe}
-.prov-wrap table{width:100%;border-collapse:collapse;font-family:'Space Grotesk',Verdana,sans-serif;white-space:nowrap}
+.prov-wrap table{width:100%;border-collapse:collapse;font-family:var(--font-mono),Verdana,sans-serif;white-space:nowrap}
 .prov-wrap th{position:sticky;top:0;background:#111827;color:#FFFFFF;font-size:10px;font-weight:900;letter-spacing:0.5px;padding:8px 6px;z-index:2;border:1px solid #111827}
 .prov-wrap tr:nth-child(even) td{background:#F7F7F5}
 .prov-wrap td{font-family:var(--font)}
@@ -389,3 +412,8 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
   .swing-wrap{flex-direction:column}
   .swing-col{width:100%}
 }
+
+/* ---------- Decima Mono Pro: numbers & statistics ---------- */
+[style*="font-variant-numeric:tabular-nums"]{font-family:var(--font-mono)}
+input.vote-input,input.sb-in,input.cb-num,.cb-block-tot,.cb-vote,.tip-pct,.tot-amt,.tot-note,.val,.cp-slider-row .val{font-family:var(--font-mono)}
+td[style*="text-align:right"]{font-family:var(--font-mono)}
