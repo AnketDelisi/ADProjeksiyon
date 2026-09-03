@@ -2292,7 +2292,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${vote.toFixed(2)}</text>`;
   }
   svg+=`<svg x="20" y="190" width="1160" height="685">${mapSvgClean}</svg>`;
-  // parliament: original shape, uniformly scaled down (s=0.32) to fit below the map
+  // parliament: exact original section (geometry + labels), uniformly scaled to fit below the map
   const radii=[]; for (let r=130;r<265;r+=10) radii.push(r);
   let seatsPerRow=radii.map(r=>Math.round(totalSeats*(r/radii.reduce((a,b)=>a+b,0))));
   const spSum=seatsPerRow.reduce((a,b)=>a+b,0);
@@ -2307,12 +2307,11 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     }
   }
   points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
-  svg+='<g transform="translate(930, 978) scale(0.32)">';
+  svg+='<g transform="translate(930, 980) scale(0.36)">';
   for (let i=0;i<assignedParties.length;i++){
-    if (i<points.length) svg+=`<circle cx="${points[i].x.toFixed(1)}" cy="${(-points[i].y).toFixed(1)}" r="1.6" fill="${colors[assignedParties[i]]||'#888'}" />`;
+    if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
-  svg+='</g>';
-  svg+=`<text x="930" y="891" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="930" y1="894" x2="930" y2="938" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="930" y="973" text-anchor="middle" font-size="34" font-weight="900" fill="#1A1A1A">${totalSeats}</text>`;
+  svg+=`<text x="0" y="-272" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="0" y1="-262" x2="0" y2="-118" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="0" y="-12" text-anchor="middle" font-size="44" font-weight="900" fill="#1A1A1A">${totalSeats}</text></g>`;
   svg+=await appLogoInline(40,932,280,32);
   svg+='</svg>';
   return svg;
