@@ -1066,8 +1066,16 @@ function renderSidebar(){
   // custom party
   const cpName=$('#cp-name'); if (cpName) cpName.oninput=()=>{ state.customPartyName=cpName.value; };
   const cpColor=$('#cp-color'); if (cpColor) cpColor.oninput=()=>{ state.customPartyColor=cpColor.value; };
-  const cpSrcSel=$('#cp-src'); if (cpSrcSel) cpSrcSel.onchange=()=>{ state.customPartyBaseSel=cpSrcSel.value; };
-  const cpSlider=$('#cp-slider'); if (cpSlider) cpSlider.oninput=()=>{ state.customPartyBasePcts[state.customPartyBaseSel]=parseFloat(cpSlider.value); };
+  const cpSrcSel=$('#cp-src'); if (cpSrcSel) cpSrcSel.onchange=()=>{ state.customPartyBaseSel=cpSrcSel.value; renderSidebar(); };
+  const cpSlider=$('#cp-slider'); if (cpSlider) cpSlider.oninput=()=>{
+    const v=parseFloat(cpSlider.value);
+    state.customPartyBasePcts[state.customPartyBaseSel]=v;
+    const row=cpSlider.closest('.cp-slider-row');
+    if (row){
+      const valEl=row.querySelector('.val');
+      if (valEl){ valEl.textContent=v+'%'; valEl.style.color=v>0?(PARTY_COLORS[state.customPartyBaseSel]||'#111827'):'#64748B'; }
+    }
+  };
   const cpBtn=$('#btn-add-cp'); if (cpBtn) cpBtn.onclick=()=>addCustomParty();
   Object.keys(state.customPartiesDef).forEach(n=>{
     const b=$(`#cpdel-${cssSafe(n)}`); if (b) b.onclick=()=>{ delete state.customPartiesDef[n]; delete state.userInputs[n]; state.activeParties=state.activeParties.filter(x=>x!==n); renderSidebar(); runSimulation(); };
