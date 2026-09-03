@@ -2273,7 +2273,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
   if (!sortedPartyRows.length) sortedPartyRows.push(...summaryRows.slice(0,4));
   const cardSize=80, cardSpacing=22;
   const startX=(1200-(sortedPartyRows.length*cardSize+(sortedPartyRows.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="1180" viewBox="0 0 1200 1180" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   for (const [alyName,sIdx,eIdx] of blockSpans){
     const bx1=startX+sIdx*(cardSize+cardSpacing), bx2=startX+eIdx*(cardSize+cardSpacing)+cardSize;
     let displayAly=alyName;
@@ -2291,8 +2291,8 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     else svg+=`<text x="${cx+cardSize/2}" y="${52+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(pName)}</text>`;
     svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${vote.toFixed(2)}</text>`;
   }
-  svg+=`<svg x="30" y="190" width="1120" height="475">${mapSvgClean}</svg>`;
-  const radii=[]; for (let r=130;r<265;r+=10) radii.push(r);
+  svg+=`<svg x="20" y="205" width="1160" height="685">${mapSvgClean}</svg>`;
+  const radii=[]; for (let r=115;r<240;r+=9) radii.push(r);
   let seatsPerRow=radii.map(r=>Math.round(totalSeats*(r/radii.reduce((a,b)=>a+b,0))));
   const spSum=seatsPerRow.reduce((a,b)=>a+b,0);
   if (spSum!==totalSeats) seatsPerRow[seatsPerRow.length-1]+=(totalSeats-spSum);
@@ -2306,12 +2306,12 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     }
   }
   points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
-  svg+='<g transform="translate(930, 960)">';
+  svg+='<g transform="translate(930, 1140)">';
   for (let i=0;i<assignedParties.length;i++){
     if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
-  svg+=`<text x="0" y="-272" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="0" y1="-262" x2="0" y2="-118" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="0" y="-12" text-anchor="middle" font-size="44" font-weight="900" fill="#1A1A1A">${totalSeats}</text></g>`;
-  svg+=await appLogoInline(40,932,280,32);
+  svg+=`<text x="0" y="-247" text-anchor="middle" font-size="14" font-weight="900" fill="#1A1A1A">Çoğunluk</text><line x1="0" y1="-237" x2="0" y2="-107" stroke="#1A1A1A" stroke-width="2" stroke-dasharray="5,5"/><text x="0" y="-12" text-anchor="middle" font-size="44" font-weight="900" fill="#1A1A1A">${totalSeats}</text></g>`;
+  svg+=await appLogoInline(40,1130,280,32);
   svg+='</svg>';
   return svg;
 }
@@ -2363,7 +2363,8 @@ function downloadSvgAsPng(containerId, filename){
   if (!svg) return;
   const canvas=document.createElement('canvas');
   const scale=2;
-  canvas.width=1200*scale; canvas.height=980*scale;
+  const W=parseFloat(svg.getAttribute('width'))||1200, H=parseFloat(svg.getAttribute('height'))||980;
+  canvas.width=W*scale; canvas.height=H*scale;
   const ctx=canvas.getContext('2d');
   ctx.scale(scale,scale);
   const img=new Image();
