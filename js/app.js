@@ -175,6 +175,8 @@ function computeSwing(){
   // kazanan partilerin son bölümü (oy/sandalye) ile kaybedenlerin ilk bölümü (oy/1) kıyaslanır.
   const target=state.targetPartySwing;
   const opps = [], risks = [];
+  // barajı geçen partiler (ortak liste üyeleri de elenir — simülasyonla birebir aynı kural)
+  const qual = _get_qualified_parties(displayUserNat(), alliancesObj(), state.threshold, allParties());
   const byDist = {};
   for (const r of state.fullResults){ if (!byDist[r.d]) byDist[r.d]=[]; byDist[r.d].push(r); }
   for (const d of Object.keys(byDist)){
@@ -183,6 +185,7 @@ function computeSwing(){
     if (!seatCount) continue;
     const quotients=[];
     for (const r of rows){
+      if (!qual.has(r.p)) continue;
       const v=r.new_vote_pct;
       if (v<=0) continue;
       for (let i=1;i<=Math.max(1,r.seats_won);i++) quotients.push({party:r.p, q:v/i});
