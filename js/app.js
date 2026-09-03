@@ -2307,7 +2307,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     }
   }
   points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
-  svg+='<g transform="translate(930, 980) scale(0.78)">';
+  svg+='<g transform="translate(930, 968) scale(0.78)">';
   for (let i=0;i<assignedParties.length;i++){
     if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
