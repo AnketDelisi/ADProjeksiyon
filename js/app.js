@@ -1212,7 +1212,7 @@ function selectProvince(norm){
 async function loadIlceData(prov){
   if (ILCE_CACHE[prov]) return ILCE_CACHE[prov];
   try{
-    const r=await fetch(`data/ilce/${prov}.json`);
+    const r=await fetch(`data/ilce/${prov}.json`, {cache:'no-cache'});
     const j=await r.json();
     ILCE_CACHE[prov]=j;
     return j;
@@ -1221,7 +1221,7 @@ async function loadIlceData(prov){
 async function loadIlceSvg(prov){
   if (ILCE_SVG_CACHE[prov]) return ILCE_SVG_CACHE[prov];
   try{
-    const r=await fetch(`data/harita/${prov}.svg`);
+    const r=await fetch(`data/harita/${prov}.svg`, {cache:'no-cache'});
     const t=await r.text();
     ILCE_SVG_CACHE[prov]=cleanSvgString(t);
     return ILCE_SVG_CACHE[prov];
@@ -1280,7 +1280,7 @@ function setDetailProvince(prov){
 let BASE2023=null;
 async function ensureBase2023(){
   if (BASE2023) return BASE2023;
-  try{ const r=await fetch('data/base_2023.json'); BASE2023=await r.json(); }catch(e){ BASE2023=[]; }
+  try{ const r=await fetch('data/base_2023.json', {cache:'no-cache'}); BASE2023=await r.json(); }catch(e){ BASE2023=[]; }
   return BASE2023;
 }
 function base2023ForProv(prov){
@@ -3786,16 +3786,16 @@ function renderOlasilik(){
 async function boot(){
   bindSegNav();
   const [yrs, dists, svg, polls, ilceNames, svg2, yerel, yerelCand, big, meclis] = await Promise.all([
-    fetch('data/base_years.json').then(r=>r.json()),
-    fetch('data/districts.json').then(r=>r.json()),
-    fetch('data/turkiye.svg').then(r=>r.text()),
-    fetch('data/polls.json').then(r=>r.json()).catch(()=>[]),
-    fetch('data/ilce_names.json').then(r=>r.json()).catch(()=>null),
-    fetch('data/turkiye2.svg').then(r=>r.text()).catch(()=>''),
-    fetch('data/yerel_2024_merkez.json').then(r=>r.json()).catch(()=>null),
-    fetch('data/yerel_candidates.json').then(r=>r.json()).catch(()=>null),
-    fetch('data/buyuksehir.json').then(r=>r.json()).catch(()=>[]),
-    fetch('data/belediye_meclis.json').then(r=>r.json()).catch(()=>null)
+    fetch('data/base_years.json', {cache:'no-cache'}).then(r=>r.json()),
+    fetch('data/districts.json', {cache:'no-cache'}).then(r=>r.json()),
+    fetch('data/turkiye.svg', {cache:'no-cache'}).then(r=>r.text()),
+    fetch('data/polls.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>[]),
+    fetch('data/ilce_names.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>null),
+    fetch('data/turkiye2.svg', {cache:'no-cache'}).then(r=>r.text()).catch(()=>''),
+    fetch('data/yerel_2024_merkez.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>null),
+    fetch('data/yerel_candidates.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>null),
+    fetch('data/buyuksehir.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>[]),
+    fetch('data/belediye_meclis.json', {cache:'no-cache'}).then(r=>r.json()).catch(()=>null)
   ]);
   YEARS=yrs; DISTRICTS=dists; SVG_TURKIYE=cleanSvgString(svg);
   window.BASE_YEARS=yrs; window.DISTRICTS=dists;
