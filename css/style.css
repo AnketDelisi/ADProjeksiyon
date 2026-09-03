@@ -104,15 +104,22 @@ body{background:var(--c-bg);color:var(--c-text-main);font-family:var(--font);fon
 .seg-nav{
   position:sticky;top:0;z-index:50;width:100%;
   background:var(--c-surface);border:2px solid var(--c-edge);box-shadow:var(--shadow-big);
-  padding:10px 28px;margin:0;display:flex;gap:2px;
+  padding:10px 28px;margin:0;display:flex;gap:2px;align-items:center;
 }
 .tab-trigger{
   border:none;background:transparent;color:var(--c-text-main);
   font-family:var(--font);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;
-  padding:12px 16px 10px 16px;cursor:pointer;
+  padding:12px 16px 10px 16px;cursor:pointer;white-space:nowrap;flex-shrink:0;
 }
 .tab-trigger:hover{color:var(--c-accent-2)}
 .tab-trigger[data-active="true"]{color:#FFFFFF;background:#111827}
+.tab-social{
+  margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;
+  color:#FFFFFF;background:#111827;border:2px solid #111827;text-decoration:none;
+  font-family:var(--font);font-size:12px;font-weight:900;letter-spacing:0.4px;
+  padding:10px 14px 8px 14px;transition:background 90ms ease, color 90ms ease;
+}
+.tab-social:hover{background:var(--c-accent);color:#FFFFFF}
 
 /* ---------- Cards / kickers ---------- */
 .sb-card{background:var(--c-surface);border:2px solid var(--c-edge);margin-bottom:16px;padding:14px 16px;width:100%}
@@ -417,3 +424,15 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 [style*="font-variant-numeric:tabular-nums"]{font-family:var(--font-mono)}
 input.vote-input,input.sb-in,input.cb-num,.cb-block-tot,.cb-vote,.tip-pct,.tot-amt,.tot-note,.val,.cp-slider-row .val{font-family:var(--font-mono)}
 td[style*="text-align:right"]{font-family:var(--font-mono)}
+
+/* ---------- Mobile: tabs scroll instead of overflow ---------- */
+@media (max-width:768px){
+  .seg-nav{
+    padding:8px 12px;
+    overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .seg-nav::-webkit-scrollbar{display:none}
+  .tab-trigger{font-size:11px;padding:10px 12px 8px 12px;letter-spacing:0.3px}
+  .tab-social{font-size:11px;padding:9px 12px 7px 12px;margin-left:8px}
+}
