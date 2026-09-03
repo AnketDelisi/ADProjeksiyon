@@ -169,41 +169,32 @@ function renderCurrentTab(){
   else renderMeclis();
 }
 
-function computeSwing(baseObj, un){
-  const mult = {};
-  for (const p of allParties()) mult[p] = baseObj.nat[p] ? (un[p]||0)/baseObj.nat[p] : 0;
-  const jl = jointListsObj();
-  const qual = _get_qualified_parties(displayUserNat(), alliancesObj(), state.threshold, allParties());
+function computeSwing(){
+  // Fırsat/Risk analizi — gerçek simülasyon çıktısından (state.fullResults) hesaplanır;
+  // harita/sandalye dağılımıyla tutarlıdır. Sınır, D'Hondt bölümleriyle bulunur:
+  // kazanan partilerin son bölümü (oy/sandalye) ile kaybedenlerin ilk bölümü (oy/1) kıyaslanır.
+  const target=state.targetPartySwing;
   const opps = [], risks = [];
-  const seatMap = {};
-  for (const d of Object.keys(baseObj.seats)) seatMap[d] = baseObj.seats[d];
   const byDist = {};
-  for (const r of state.fullResults){ if (!byDist[r.d]) byDist[r.d]={}; byDist[r.d][r.p]=r.new_vote_pct; }
-  const baseByDist = {};
-  for (const r of baseRowsFromObj(baseObj)){ if (!baseByDist[r.district]) baseByDist[r.district]={}; baseByDist[r.district][r.party]=r.base_vote_pct; }
-  for (const d of Object.keys(baseByDist)){
-    const seatCount = seatMap[d]||0;
-    if (seatCount<=0) continue;
-    const b = baseByDist[d];
-    const nv = {};
-    for (const p of Object.keys(b)) nv[p] = b[p]*(mult[p]||1);
-    let tot = Object.values(nv).reduce((a,v)=>a+v,0)||1;
-    for (const p of Object.keys(nv)) nv[p] = nv[p]/tot*100;
-    for (const um of Object.keys(jl)) if (nv[um]!==undefined) for (const jp of jl[um]) if (nv[jp]!==undefined){ nv[um]+=nv[jp]; nv[jp]=0; }
-    const eligible = {};
-    for (const p of Object.keys(nv)) if (qual.has(p) && nv[p]>0) eligible[p]=nv[p];
-    if (!Object.keys(eligible).length) continue;
-    const quotients = [];
-    for (const p of Object.keys(eligible)) for (let i=1;i<=seatCount+1;i++) quotients.push({party:p, quotient: eligible[p]/i});
-    quotients.sort((a,b)=>b.quotient-a.quotient);
-    if (quotients.length >= seatCount+1){
-      const lastW = quotients[seatCount-1], firstL = quotients[seatCount];
-      const margin = lastW.quotient-firstL.quotient;
-      if (lastW.party===state.targetPartySwing){
-        risks.push({district:get_display_label(d), rakip:firstL.party, desc:`${firstL.party}'den %${margin.toFixed(2)} farkla kurtarıldı.`, margin});
-      } else if (firstL.party===state.targetPartySwing){
-        opps.push({district:get_display_label(d), rakip:lastW.party, desc:`${lastW.party}'ye %${margin.toFixed(2)} farkla kaybedildi.`, margin});
-      }
+  for (const r of state.fullResults){ if (!byDist[r.d]) byDist[r.d]=[]; byDist[r.d].push(r); }
+  for (const d of Object.keys(byDist)){
+    const rows=byDist[d];
+    const seatCount=rows[0]&&rows[0].seat_count||0;
+    if (!seatCount) continue;
+    const quotients=[];
+    for (const r of rows){
+      const v=r.new_vote_pct;
+      if (v<=0) continue;
+      for (let i=1;i<=Math.max(1,r.seats_won);i++) quotients.push({party:r.p, q:v/i});
+    }
+    quotients.sort((a,b)=>b.q-a.q);
+    if (quotients.length < seatCount+1) continue;
+    const lastW=quotients[seatCount-1], firstL=quotients[seatCount];
+    const margin=lastW.q-firstL.q;
+    if (lastW.party===target){
+      risks.push({district:get_display_label(d), rakip:firstL.party, desc:`${firstL.party}'den %${margin.toFixed(2)} farkla kurtarıldı.`, margin});
+    } else if (firstL.party===target){
+      opps.push({district:get_display_label(d), rakip:lastW.party, desc:`${lastW.party}'ye %${margin.toFixed(2)} farkla kaybedildi.`, margin});
     }
   }
   opps.sort((a,b)=>a.margin-b.margin);

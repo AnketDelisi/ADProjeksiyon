@@ -134,6 +134,8 @@ function ymProjectProvince(o){
     if (!aly) continue;
     if (allysObj[aly].some(x=>x!==p && running.has(x))) dropSet.add(p);
   }
+  // çekilen partiler ana aday olamaz (ör. büyükşehir ittifak kuralı)
+  majors = majors.filter(p => !dropSet.has(p));
   const flows={};
   const dropped=[];
   for (const p of dropSet){

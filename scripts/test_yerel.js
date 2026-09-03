@@ -126,6 +126,12 @@ function round1(x){ return Math.round(x*10)/10; }
   const mhpAmasya = out['amasya'].shares['MHP']||0;
   assert('istanbul (big) MHP dropped to 0', mhpIstanbul < 0.01, mhpIstanbul.toFixed(2));
   assert('amasya (non-big) MHP still runs', mhpAmasya > 1, mhpAmasya.toFixed(1));
+  // bugfix: dropped alliance members must not remain majors
+  const istMajors = out['istanbul'].majors;
+  const ankMajors = out['ankara'].majors;
+  assert('istanbul majors exclude dropped MHP', istMajors.indexOf('MHP')<0, istMajors.join(','));
+  assert('ankara majors exclude dropped MHP', ankMajors.indexOf('MHP')<0, ankMajors.join(','));
+  assert('istanbul majors include the alliance leader AKP', istMajors.indexOf('AKP')>=0, istMajors.join(','));
 }
 
 // ---- 5. Defection preset: İmamoğlu personal vote moves CHP->YENI ----
