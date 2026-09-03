@@ -2291,7 +2291,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     else svg+=`<text x="${cx+cardSize/2}" y="${52+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(pName)}</text>`;
     svg+=`<text x="${cx+cardSize/2}" y="160" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">${seats}</text><text x="${cx+cardSize/2}" y="180" text-anchor="middle" fill="#71716E" font-weight="700" font-size="13">% ${vote.toFixed(2)}</text>`;
   }
-  svg+=`<svg x="20" y="190" width="1160" height="685">${mapSvgClean}</svg>`;
+  svg+=`<svg x="20" y="182" width="1160" height="685">${mapSvgClean}</svg>`;
   // parliament: exact original section (geometry + labels), uniformly scaled to fit below the map
   const radii=[]; for (let r=130;r<265;r+=10) radii.push(r);
   let seatsPerRow=radii.map(r=>Math.round(totalSeats*(r/radii.reduce((a,b)=>a+b,0))));
@@ -2307,7 +2307,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
     }
   }
   points.sort((a,b)=> (b.angle-a.angle) || (a.r-b.r));
-  svg+='<g transform="translate(930, 980) scale(0.36)">';
+  svg+='<g transform="translate(930, 980) scale(0.39)">';
   for (let i=0;i<assignedParties.length;i++){
     if (i<points.length) svg+=`<circle cx="${points[i].x}" cy="${-points[i].y}" r="5.0" fill="${colors[assignedParties[i]]||'#888'}" />`;
   }
