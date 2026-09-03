@@ -14,9 +14,44 @@
   --t-bar-bg:#EEF2F8;
   --sidebar-input-bg:#FFFFFF;
   --sidebar-input-border:#CBD5E1;
-  --font:'Nunito Sans','Inter','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --font:'Atlas Grotesk','Nunito Sans','Inter','Helvetica Neue',Helvetica,Arial,sans-serif;
   --shadow-big:5px 5px 0 rgba(17,24,39,1);
   --shadow-md:3px 3px 0 rgba(17,24,39,1);
+}
+@font-face{
+  font-family:'Atlas Grotesk';
+  font-style:normal;
+  font-weight:100 300;
+  src:url('../fonts/AtlasGrotesk-Thin.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Atlas Grotesk';
+  font-style:normal;
+  font-weight:400;
+  src:url('../fonts/AtlasGrotesk-Regular.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Atlas Grotesk';
+  font-style:normal;
+  font-weight:500;
+  src:url('../fonts/AtlasGrotesk-Medium.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Atlas Grotesk';
+  font-style:normal;
+  font-weight:600 800;
+  src:url('../fonts/AtlasGrotesk-Bold.woff2') format('woff2');
+  font-display:swap;
+}
+@font-face{
+  font-family:'Atlas Grotesk';
+  font-style:normal;
+  font-weight:900;
+  src:url('../fonts/AtlasGrotesk-Black.woff2') format('woff2');
+  font-display:swap;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -104,7 +139,7 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 .vote-logo{width:28px;height:28px;flex-shrink:0;border:2px solid var(--c-edge);box-shadow:var(--shadow-md);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff}
 .vote-logo img{width:100%;height:100%;object-fit:contain}
 .vote-logo span{color:#fff;font-weight:900;font-size:7px;line-height:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 1px}
-.vote-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vote-name{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:0.3px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vote-input{
   background:var(--sidebar-input-bg);color:var(--c-text-main);border:2px solid var(--c-edge);border-radius:2px;
   width:62px;padding:4px 6px;font-size:13px;font-weight:900;text-align:center;

@@ -846,7 +846,7 @@ function renderMeclis(){
   html += detailSectionHtml();
 
   // 4) infographic button (full width)
-  html += `<button class="btn-download" id="btn-infographic" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>`;
+  html += `<button class="btn-download" id="btn-infographic" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR</button>`;
 
   // 5) province results table
   html += `<div class="sb-card shadow section-card">${state.provResultsHtml||`<div class="big-note">Simülasyon çalıştırıldığında il bazlı sonuç tablosu (oy oranı + vekil) oluşturulur.</div>`}</div>`;
@@ -973,7 +973,6 @@ function renderSidebar(){
   // HARİTA RENKLENDİRME (modes only)
   html+=`<div class="sb-card shadow">
     <div class="sb-kicker"><div class="bar"></div><div class="t">HARİTA RENKLENDİRME</div></div>
-    <label class="sb-label">MECLİS HARİTASI</label>
     <div class="sim-select-wrap"><select id="map-mode-side">
       ${["1. Partiler (Varsayılan)","İttifak Renklendirmesi","Milletvekili Sayısı"].map(m=>`<option ${m===state.mapMode?'selected':''}>${esc(m)}</option>`).join('')}
     </select></div>
@@ -1137,8 +1136,7 @@ function newPartyHtml(){
     <span class="val" style="color:${pct>0?(PARTY_COLORS[sel]||'#111827'):'#64748B'}">${pct}%</span>
   </div>
   <button class="btn-add" id="btn-add-cp" style="margin-top:0">Partiyi Ekle</button>
-  <div style="width:100%;margin-top:6px">${Object.keys(state.customPartiesDef).map(n=>`<div class="cp-list-row"><span class="name" style="color:${PARTY_COLORS[n]||'#111827'}">${esc(n)}</span><button id="cpdel-${cssSafe(n)}">✕</button></div>`).join('')}</div>
-  <div class="cp-hint">Tabandaki partilere ulaşanın şu yüzdeleri verilir; verilen sayı o partinin oyundan küçülür.</div>`;
+  <div style="width:100%;margin-top:6px">${Object.keys(state.customPartiesDef).map(n=>`<div class="cp-list-row"><span class="name" style="color:${PARTY_COLORS[n]||'#111827'}">${esc(n)}</span><button id="cpdel-${cssSafe(n)}">✕</button></div>`).join('')}</div>`;
 }
 
 function addCustomParty(){
@@ -1475,7 +1473,7 @@ function detailSectionHtml(){
       <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
       `}
     </div>
-    <button class="btn-download" id="btn-mec-il-info" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
+    <button class="btn-download" id="btn-mec-il-info" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR</button>
   </div>`;
   // trigger city map render
   renderCityMapAsync();
@@ -1909,7 +1907,7 @@ function cbDetailSectionHtml(rn){
         <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
         `}
     </div>
-    <button class="btn-download" id="btn-cb-il-info" data-rn="${rn}" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR (PNG)</button>
+    <button class="btn-download" id="btn-cb-il-info" data-rn="${rn}" style="width:100%;margin-top:14px;">İL İNFOGRAFİĞİNİ İNDİR</button>
   </div>`;
   return `<div id="cb_d${rn}_detail_section">${inner}</div>`;
 }
@@ -2136,7 +2134,7 @@ function renderCB(){
       <div class="map-frame">${cb.mapHtml1||emptyMap()}</div>
     </div>`;
     html+=cbDetailSectionHtml(1);
-    html+=`<button class="btn-download" id="cb-dl-1" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>`;
+    html+=`<button class="btn-download" id="cb-dl-1" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR</button>`;
   }
 
   if (r2Ok){
@@ -2174,7 +2172,7 @@ function cbR2ResultsHtml(cb){
     <div class="map-frame">${cb.mapHtml2||emptyMap()}</div>
   </div>
   ${cbDetailSectionHtml(2)}
-  <button class="btn-download" id="cb-dl-2" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR (PNG)</button>
+  <button class="btn-download" id="cb-dl-2" style="width:100%;height:48px;font-size:13px;margin:16px 0 0 0;">İNFOGRAFİK İNDİR</button>
   `;
 }
 
@@ -2275,7 +2273,7 @@ async function generateInfographicSvg(summaryRows, mapSvgClean, totalSeats, assi
   if (!sortedPartyRows.length) sortedPartyRows.push(...summaryRows.slice(0,4));
   const cardSize=80, cardSpacing=22;
   const startX=(1200-(sortedPartyRows.length*cardSize+(sortedPartyRows.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   for (const [alyName,sIdx,eIdx] of blockSpans){
     const bx1=startX+sIdx*(cardSize+cardSpacing), bx2=startX+eIdx*(cardSize+cardSpacing)+cardSize;
     let displayAly=alyName;
@@ -2321,7 +2319,7 @@ async function generateRegionalInfographicSvg(provinceName, topParties, mapSvgCl
   const cardSize=80, cardSpacing=22;
   const rows=topParties.slice();
   const startX=(1200-(rows.length*cardSize+(rows.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   svg+=`<text x="600" y="30" text-anchor="middle" font-size="20" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(provinceName)} İLİ SEÇİM SONUÇLARI</text>`;
   for (let idx=0; idx<rows.length; idx++){
     const row=rows[idx];
@@ -2343,7 +2341,7 @@ async function generateCbInfographicSvg(title, candsData, mapSvgClean, candColor
   const topCands=candsData.slice().sort((a,b)=>b[1]-a[1]).filter(c=>c[1]>0).slice(0,5);
   if (!topCands.length) topCands.push(...candsData.slice(0,2));
   const startX=(1200-(topCands.length*cardWidth+(topCands.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   svg+=`<text x="600" y="45" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
   for (let idx=0; idx<topCands.length; idx++){
     const [candName,pct]=topCands[idx];
@@ -2453,7 +2451,7 @@ async function generateYerelInfographicSvg(title, partiesData, mapSvgClean){
   const cardSize=80, cardSpacing=22;
   const top=partiesData.slice().sort((a,b)=>b.wins-a.wins).filter(d=>d.wins>0).slice(0,8);
   const startX=(1200-(top.length*cardSize+(top.length-1)*cardSpacing))/2;
-  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
   svg+=`<text x="600" y="38" text-anchor="middle" font-size="24" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
   for (let idx=0; idx<top.length; idx++){
     const d=top[idx];
@@ -2936,7 +2934,7 @@ function renderYerel(){
     <div class="sb-kicker"><div class="bar"></div><div class="t">İL HARİTASI</div></div>
     <div class="map-frame">${state._yerelMapHtml||emptyMap()}</div>
   </div>`;
-  html+=`<button class="btn-download" id="yerel-infographic" style="width:100%;height:48px;font-size:13px;margin:12px 0 0 0;">YEREL İNFOGRAFİK İNDİR (PNG)</button>`;
+  html+=`<button class="btn-download" id="yerel-infographic" style="width:100%;height:48px;font-size:13px;margin:12px 0 0 0;">YEREL İNFOGRAFİK İNDİR</button>`;
   html+=`<div style="margin-top:12px;">${yerelDetailHtml()}</div>`;
   html+=`</div></div>`;
   pane.innerHTML=html;
@@ -3707,7 +3705,7 @@ function renderOlasilik(){
   </div>`;
   // 2) run button
   html+=`<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:12px;margin-bottom:12px;">
-    <button class="btn-calc" id="mc-run" style="width:100%;padding-top:10px;padding-bottom:10px;">Modeli Çalıştır (500 Simülasyon)</button>
+    <button class="btn-calc" id="mc-run" style="width:100%;padding-top:10px;padding-bottom:10px;">Modeli Çalıştır</button>
     ${state.mc.running?`<div style="color:#B0540A;font-weight:900;font-size:13px;">Model çalışıyor, lütfen bekleyin...</div>`:''}
   </div>`;
   // 3) results (title+faceoff+bee+conf+map)
