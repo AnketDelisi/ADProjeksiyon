@@ -1521,11 +1521,18 @@ function renderYerelCityMapAsync(){
 function renderYerelCityMap(prov, cityData, svgText){
   // Anchor to the province-wide mayor result (already finalized with ALL yerel
   // options: dropouts, majors/minors, multipliers, personal vote, pop boost, nerf,
-  // alliance dropout). Each ilçe tilts that result by its own council lean, so ilçe
-  // results reflect the province projection while still differentiating by district.
+  // alliance dropout). Each ilçe is a *rational, margin-aware* reflection of it:
+  // districts are tilted only modestly by their council lean, so a close province
+  // race produces a plausible mix of ilçe winners rather than an all-sweep.
   const provRes=state.yerelResults&&state.yerelResults.provs[prov];
   const M=provRes?provRes.shares:null;
-  if (!M) return;
+  if (!M || !(M.YENI>=0 && M.AKP>=0)) return;
+  const margin=provRes.margin||Math.abs(M.YENI-M.AKP);
+  // swing sensitivity scaled by province margin (big lead => districts stay close to
+  // province; tight race => more district differentiation). Capped to avoid exaggeration.
+  const lambda=clamp(21/(margin+21),0.3,0.75);
+  const pY=M.YENI, pA=M.AKP, S=pY+pA;
+  if (!(S>0) || pA<=0 || pY<=0) return;
   // weighted district council profiles (same year weights as the model)
   const totW=(state.w18+state.w23+state.w24)||100;
   const wn18=state.w18/totW, wn23=state.w23/totW, wn24=state.w24/totW;
@@ -1551,21 +1558,27 @@ function renderYerelCityMap(prov, cityData, svgText){
     for (const d of Object.keys(distProfile)) s+=(distProfile[d][P]||0);
     C[P]=s/nD;
   }
-  // district tilt strength (0=all provinces identical, 1=full lean separation)
-  const k=0.7;
+  // progressive vs conservative council blocs drive the decisive district lean
+  const YENI_BLOC=['CHP','YENI','DEM','TIP','TKP','A'];
+  const AKP_BLOC=['AKP','MHP','BBP','HUDA','YRP','SAADET','DEVA'];
+  const cYb=YENI_BLOC.reduce((s,p)=>s+(C[p]||0),0);
+  const cAb=AKP_BLOC.reduce((s,p)=>s+(C[p]||0),0);
+  const CpRatio=cYb/Math.max(0.1,cAb);
+  const others=Object.keys(M).filter(p=>p!=='YENI'&&p!=='AKP');
+
   const distWinners={},distColors={},distTips={},ilceBars={};
   for (const n of Object.keys(distProfile)){
     const nDist=normalize_id(n);
     const prof=distProfile[n];
-    const D={};
-    for (const P of Object.keys(partySet)){
-      const m=M[P]||0;
-      const lean=C[P]>0?Math.max(0.1,(prof[P]||0)/C[P]):1;
-      D[P]=m*Math.pow(lean,k);
-    }
-    for (const P of Object.keys(M)) if (D[P]===undefined) D[P]=M[P]||0;
+    const sY=YENI_BLOC.reduce((s,p)=>s+(prof[p]||0),0);
+    const sA=AKP_BLOC.reduce((s,p)=>s+(prof[p]||0),0);
+    const rNorm=(sY/Math.max(0.1,sA))/CpRatio;
+    const R=(pY/pA)*Math.pow(rNorm,lambda);
+    let dY=S*R/(1+R), dA=S*1/(1+R);
+    const D={YENI:dY, AKP:dA};
+    for (const p of others) D[p]=M[p]||0;
     const tD=Object.values(D).reduce((a,b)=>a+b,0);
-    for (const P of Object.keys(D)) D[P]=tD>0?D[P]/tD*100:0;
+    for (const p of Object.keys(D)) D[p]=tD>0?D[p]/tD*100:0;
     const top=Object.entries(D).sort((a,b)=>b[1]-a[1]);
     if (!top.length) continue;
     const wParty=top[0][0], pct=top[0][1];
