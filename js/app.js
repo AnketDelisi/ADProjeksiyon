@@ -126,7 +126,7 @@ function runSimulation(){
   if (Object.values(un).reduce((a,b)=>a+b,0)<=0) return;
   // model-inputs signature: skip the whole sim when only display state changed
   const sig=JSON.stringify([state.w18,state.w23,state.w24,state.userInputs,state.customPartiesDef,state.allianceList,state.jointList,state.threshold,state.allocation]);
-  if (state._genelSig===sig && state.fullResults.length){ renderCurrentTab(); return; }
+  if (state._genelSig===sig && state.fullResults.length){ state.mapHtml = buildMapHtml(state.fullResults, 'genel', 'hidden_prov_input', 'prov_detail_section'); renderCurrentTab(); return; }
   state._genelSig=sig;
   const baseObj = _weightedBase(state.w18, state.w23, state.w24, state.customPartiesDef);
   const allP = allParties();
