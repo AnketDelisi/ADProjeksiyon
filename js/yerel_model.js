@@ -22,7 +22,7 @@ function ymSynthNat(nat, un){
 }
 
 function ymProjectProvince(o){
-  const {prov, structural, synthNat, un, w24, flowRate, matrix, blocs, allysObj, over, pop, manualMajors, candProv, candStatus, candPersonal, defMap, allPList, winner, pb, isBig, councilTotal, nerf} = o;
+  const {prov, structural, synthNat, un, w24, flowRate, matrix, blocs, allysObj, over, pop, manualMajors, candProv, candStatus, candPersonal, defMap, allPList, winner, pb, isBig, councilTotal, nerf, bigFlowRate, bigMajorThresh} = o;
   // synthesized per-province base: structural + breakoff parties added on top (no deduction)
   const base=Object.assign({}, structural);
   const mkB=(p)=>{ if (!((un[p]||0)>0)) return; const row=DEFAULT_TRANSITIONS[p]||{}; let g=0; for (const s of Object.keys(row)){ if (s===p) continue; g+=(base[s]||0)*row[s]/100; } base[p]=(base[p]||0)+g; };
@@ -93,12 +93,23 @@ function ymProjectProvince(o){
     const tP=Object.values(final0).reduce((a,b)=>a+b,0);
     for (const p of keys) final0[p]=tP>0?final0[p]/tP*100:0;
   }
-  // majors: manual override or auto (top 3 + >10pp, max 4), ÇEKİL skipped
+  // majors: manual override or auto (top 3 + >10pp, max 4), ÇEKİL skipped.
+  // Büyükşehirlerde nitelik daha katı: yalnız ilk 2 garantili, 3. aday eşiği aşmalı.
   const ranked=Object.entries(final0).sort((a,b)=>b[1]-a[1]);
+  const bigHard = isBig && (bigMajorThresh||0)>0;
   let majors=[];
   if (manualMajors&&manualMajors.length){
     majors=manualMajors.filter(p=>over[p]!=='drop'&&(final0[p]||0)>0);
     for (const [p,v] of ranked){ if (v>0&&over[p]!=='drop'&&majors.length<2&&majors.indexOf(p)<0) majors.push(p); }
+  }else if (bigHard){
+    let n=0;
+    for (const [p,v] of ranked){
+      if (over[p]==='drop') continue;
+      if (n<2){ majors.push(p); n++; continue; }
+      if (v>=bigMajorThresh && majors.length<3){ majors.push(p); n++; continue; }
+      if (v>10 && majors.length<4 && majors.indexOf(p)<0){ majors.push(p); n++; }
+    }
+    if (majors.length<2){ for (const [p,v] of ranked) if (majors.indexOf(p)<0&&over[p]!=='drop'&&v>0&&majors.length<2) majors.push(p); }
   }else{
     for (const [p,v] of ranked){ if (over[p]!=='drop' && majors.length<3) majors.push(p); }
     for (const [p,v] of ranked.slice(3)){ if (v>10 && majors.length<4 && over[p]!=='drop' && majors.indexOf(p)<0) majors.push(p); }
@@ -154,14 +165,15 @@ function ymProjectProvince(o){
     final0[p]=0;
     dropped.push(p);
   }
-  // bloc attraction: minors' votes flow partly to majors
+  // bloc attraction: minors' votes flow partly to majors (büyükşehirlerde daha yüksek akış)
   const final=Object.assign({},final0);
+  const effFlow = (isBig && bigFlowRate!=null) ? bigFlowRate : flowRate;
   for (const [p,v] of Object.entries(final0)){
     if (majors.indexOf(p)>=0) continue;
     if (v<=0) continue;
     const bloc=blocs[p]||p;
     const row=matrix[bloc]||matrix[p]||{};
-    const flowed=v*flowRate;
+    const flowed=v*effFlow;
     const wts=majors.map(m=>parseFloat(row[m])||0);
     const wSum=wts.reduce((a,b)=>a+b,0);
     if (wSum>0 && flowed>0){

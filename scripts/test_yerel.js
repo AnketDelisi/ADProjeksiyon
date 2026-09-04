@@ -29,6 +29,8 @@ function projectAll(un, opts){
   opts = opts || {};
   const w24 = opts.w24!==undefined ? opts.w24 : 0.30;
   const flowRate = opts.flowRate!==undefined ? opts.flowRate : 0.05;
+  const bigFlowRate = opts.bigFlowRate!==undefined ? opts.bigFlowRate : null;
+  const bigMajorThresh = opts.bigMajorThresh!==undefined ? opts.bigMajorThresh : 0;
   const matrix = opts.matrix || YEREL_MATRIX_DEFAULTS;
   const pb = opts.pb || 0;
   const nerf = {};
@@ -53,7 +55,7 @@ function projectAll(un, opts){
       defMap, allPList, winner: YEREL_2024.winners[prov]||'', pb,
       isBig: BUYUKSEHIR[prov]?1:0,
       councilTotal: BELEDIYE_MECLIS[prov]||0,
-      nerf
+      nerf, bigFlowRate, bigMajorThresh
     });
     out[prov].base2024 = Object.assign({}, YEREL_2024.provinces[prov]);
   }

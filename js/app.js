@@ -70,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelIlce:"", yerelIlceBarsMap:{}, yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
+  yerelW24:30, yerelFlow:5, yerelFlowBig:15, yerelBigMajorThresh:6, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelIlce:"", yerelIlceBarsMap:{}, yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -1526,13 +1526,12 @@ function renderYerelCityMap(prov, cityData, svgText){
   // race produces a plausible mix of ilçe winners rather than an all-sweep.
   const provRes=state.yerelResults&&state.yerelResults.provs[prov];
   const M=provRes?provRes.shares:null;
-  if (!M || !(M.YENI>=0 && M.AKP>=0)) return;
-  const margin=provRes.margin||Math.abs(M.YENI-M.AKP);
+  if (!M) return;
+  const rankedM0=Object.entries(M).filter(([,v])=>v>0.05).sort((a,b)=>b[1]-a[1]);
+  const margin=provRes.margin||((rankedM0[0]&&rankedM0[1])?rankedM0[0][1]-rankedM0[1][1]:rankedM0[0]?rankedM0[0][1]:0);
   // swing sensitivity scaled by province margin (big lead => districts stay close to
   // province; tight race => more district differentiation). Capped to avoid exaggeration.
   const lambda=clamp(21/(margin+21),0.3,0.75);
-  const pY=M.YENI, pA=M.AKP, S=pY+pA;
-  if (!(S>0) || pA<=0 || pY<=0) return;
   // weighted district council profiles (same year weights as the model)
   const totW=(state.w18+state.w23+state.w24)||100;
   const wn18=state.w18/totW, wn23=state.w23/totW, wn24=state.w24/totW;
@@ -1558,24 +1557,32 @@ function renderYerelCityMap(prov, cityData, svgText){
     for (const d of Object.keys(distProfile)) s+=(distProfile[d][P]||0);
     C[P]=s/nD;
   }
-  // progressive vs conservative council blocs drive the decisive district lean
-  const YENI_BLOC=['CHP','YENI','DEM','TIP','TKP','A'];
-  const AKP_BLOC=['AKP','MHP','BBP','HUDA','YRP','SAADET','DEVA'];
-  const cYb=YENI_BLOC.reduce((s,p)=>s+(C[p]||0),0);
-  const cAb=AKP_BLOC.reduce((s,p)=>s+(C[p]||0),0);
-  const CpRatio=cYb/Math.max(0.1,cAb);
-  const others=Object.keys(M).filter(p=>p!=='YENI'&&p!=='AKP');
+  // decisive pair = actual top-2 candidates in the province result (handles cases
+  // where a big party is dropped, e.g. AKP in some provinces). Districts tilt between
+  // these two using their council-bloc lean (bloc = CB_GROUP the party belongs to).
+  const rankedM=Object.entries(M).filter(([,v])=>v>0.05).sort((a,b)=>b[1]-a[1]);
+  const W1=rankedM[0]?rankedM[0][0]:null, W2=rankedM[1]?rankedM[1][0]:null;
+  if (!W1 || !W2 || W1===W2) return;
+  const yrBlocs=yerelBlocs();
+  const blocOfW1=yrBlocs[W1]||W1, blocOfW2=yrBlocs[W2]||W2;
+  const blocMembers1=CB_GROUPS[blocOfW1]||[W1];
+  const blocMembers2=CB_GROUPS[blocOfW2]||[W2];
+  const c1b=blocMembers1.reduce((s,p)=>s+(C[p]||0),0);
+  const c2b=blocMembers2.reduce((s,p)=>s+(C[p]||0),0);
+  const CpRatio=Math.max(0.1,c1b)/Math.max(0.1,c2b);
+  const pY=M[W1], pA=M[W2], S=pY+pA;
+  const others=Object.keys(M).filter(p=>p!==W1&&p!==W2);
 
   const distWinners={},distColors={},distTips={},ilceBars={};
   for (const n of Object.keys(distProfile)){
     const nDist=normalize_id(n);
     const prof=distProfile[n];
-    const sY=YENI_BLOC.reduce((s,p)=>s+(prof[p]||0),0);
-    const sA=AKP_BLOC.reduce((s,p)=>s+(prof[p]||0),0);
-    const rNorm=(sY/Math.max(0.1,sA))/CpRatio;
+    const s1=blocMembers1.reduce((s,p)=>s+(prof[p]||0),0);
+    const s2=blocMembers2.reduce((s,p)=>s+(prof[p]||0),0);
+    const rNorm=(s1/Math.max(0.1,s2))/CpRatio;
     const R=(pY/pA)*Math.pow(rNorm,lambda);
-    let dY=S*R/(1+R), dA=S*1/(1+R);
-    const D={YENI:dY, AKP:dA};
+    let d1=S*R/(1+R), d2=S*1/(1+R);
+    const D={}; D[W1]=d1; D[W2]=d2;
     for (const p of others) D[p]=M[p]||0;
     const tD=Object.values(D).reduce((a,b)=>a+b,0);
     for (const p of Object.keys(D)) D[p]=tD>0?D[p]/tD*100:0;
@@ -1585,7 +1592,7 @@ function renderYerelCityMap(prov, cityData, svgText){
     distWinners[nDist]=wParty;
     distColors[nDist]=get_heatmap_color(PARTY_COLORS[wParty]||'#888888',clamp(Math.max(0.3,Math.min(1.0,pct/65)),0,1));
     const tipRows=top.filter(x=>x[1]>0).slice(0,6).map(([p,v])=>({party:p,new_vote_pct:v,seats_won:0}));
-    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov,nDist)}<span class="tip-total">BELEDİYE BAŞKANLIĞI</span>`,tooltipGroupRows(tipRows),true);
+    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov,nDist)}`,tooltipGroupRows(tipRows),true);
     const b23=cityData[n].parties?Object.fromEntries(Object.entries(cityData[n].parties).map(([p,v])=>[p,v.v23||0])):{};
     ilceBars[nDist]=buildDistrictBarRows(tipRows.map(({party,new_vote_pct})=>({party,new_vote_pct,seats_won:0})),b23,{},false,null);
   }
@@ -2631,7 +2638,10 @@ function runLocal(){
   if (!YEREL_2024) return;
   const un=userNorm();
   const w24=clamp(Number.isFinite(parseFloat(state.yerelW24))?parseFloat(state.yerelW24):30,0,100)/100;
-  const flowRate=clamp(Number.isFinite(parseFloat(state.yerelFlow))?parseFloat(state.yerelFlow):25,0,80)/100;
+  const flowRate=clamp(Number.isFinite(parseFloat(state.yerelFlow))?parseFloat(state.yerelFlow):5,0,80)/100;
+  // büyükşehirlere özel: daha yüksek minor akışı + daha katı majör eşiği
+  const bigFlowRate=(clamp(Number.isFinite(parseFloat(state.yerelFlowBig))?parseFloat(state.yerelFlowBig):0,0,80)/100)||null;
+  const bigMajorThresh=clamp(Number.isFinite(parseFloat(state.yerelBigMajorThresh))?parseFloat(state.yerelBigMajorThresh):0,0,30);
   const matrix=yerelMatrix();
   const blocs=yerelBlocs();
   const synthNat=ymSynthNat(YEREL_2024.nat, un);
@@ -2660,7 +2670,8 @@ function runLocal(){
       defMap, allPList, winner:YEREL_2024.winners[prov]||'', pb,
       isBig:BUYUKSEHIR[prov]?1:0,
       councilTotal:BELEDIYE_MECLIS&&BELEDIYE_MECLIS[prov]?BELEDIYE_MECLIS[prov]:0,
-      nerf
+      nerf,
+      bigFlowRate, bigMajorThresh
     });
     r.base2024=Object.assign({}, YEREL_2024.provinces[prov]);
     out[prov]=r;
@@ -2794,17 +2805,6 @@ function yerelDetailHtml(){
   html+=yerelCandidatesHtml(r.prov, r);
   html+=`</div>`;
   html+=yerelCouncilHtml(r);
-  if (r.big){
-    html+=`<div style="margin-top:12px;width:100%;">
-      <div class="sb-card shadow">
-        <div class="sb-kicker"><div class="bar"></div><div class="t">İLÇE BELEDİYE BAŞKANLIĞI HARİTASI</div></div>
-        <div style="padding:0 14px">
-          <div class="city-map-box" id="yerel-city-map-box"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
-          ${state.yerelIlce?yerelIlceBarsHtml():''}
-        </div>
-      </div>
-    </div>`;
-  }
   return html;
 }
 function yerelAllyOverridesHtml(prov){
@@ -2982,6 +2982,14 @@ function yerelSettingsHtml(){
         <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>POPÜLERLİK DESTEĞİ (2024 KAZANANI)</span><span style="color:#1A1A1A;">+${state.yerelPopBoost}</span></div>
         <input id="yerel-pop" type="range" min="0" max="10" step="0.5" value="${state.yerelPopBoost}" style="width:100%;accent-color:#111827;">
       </div>
+      <div style="min-width:200px;flex:1;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>BÜYÜKŞEHİR MİNOR AKIŞ (EK)</span><span style="color:#1A1A1A;">%${state.yerelFlowBig}</span></div>
+        <input id="yerel-flow-big" type="range" min="0" max="80" step="1" value="${state.yerelFlowBig}" style="width:100%;accent-color:#111827;">
+      </div>
+      <div style="min-width:200px;flex:1;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:900;color:var(--c-text-muted);letter-spacing:0.5px;margin-bottom:5px;"><span>BÜYÜKŞEHİR MAJÖR EŞİĞİ</span><span style="color:#1A1A1A;">≥%${state.yerelBigMajorThresh}</span></div>
+        <input id="yerel-major-thresh" type="range" min="0" max="15" step="0.5" value="${state.yerelBigMajorThresh}" style="width:100%;accent-color:#111827;">
+      </div>
     </div>
     `:''}
   </div>`;
@@ -3048,7 +3056,7 @@ function renderYerel(){
   if (!pane) return;
   if (!YEREL_2024) { pane.innerHTML=`<div class="sb-card shadow"><div class="big-note">Yerel seçim verisi yüklenemedi.</div></div>`; return; }
   // model inputs signature: skip runLocal when only display state changed (e.g. province click)
-  const sig=JSON.stringify([state.userInputs,state.customPartiesDef,state.allianceList,state.yerelW24,state.yerelFlow,state.yerelPopBoost,state.yerelPop,state.yerelMajors,state.yerelOverrides,state.yerelMatrix,state.yerelAlliances,state.yerelCandStatus,state.yerelCandPersonal]);
+  const sig=JSON.stringify([state.userInputs,state.customPartiesDef,state.allianceList,state.yerelW24,state.yerelFlow,state.yerelFlowBig,state.yerelBigMajorThresh,state.yerelPopBoost,state.yerelPop,state.yerelMajors,state.yerelOverrides,state.yerelMatrix,state.yerelAlliances,state.yerelCandStatus,state.yerelCandPersonal]);
   if (state._yerelSig!==sig){ runLocal(); state._yerelSig=sig; state._yerelMapHtml=yerelMapHtml(); }
   let html=`<div class="tab-pane-inner"><div class="tab-pane-538">`;
   html+=yerelSettingsHtml();
@@ -3060,11 +3068,24 @@ function renderYerel(){
     <div class="map-frame">${state._yerelMapHtml||emptyMap()}</div>
   </div>`;
   html+=`<button class="btn-download" id="yerel-infographic" style="width:100%;height:48px;font-size:13px;margin:12px 0 0 0;">YEREL İNFOGRAFİK İNDİR</button>`;
+  if (state.yerelProv && BUYUKSEHIR[state.yerelProv]){
+    html+=`<div style="margin-top:12px;width:100%;">
+      <div class="sb-card shadow">
+        <div class="sb-kicker"><div class="bar"></div><div class="t">BÜYÜKŞEHİR BELEDİYE BAŞKANLIĞI HARİTASI</div></div>
+        <div style="padding:0 14px">
+          <div class="city-map-box" id="yerel-city-map-box"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
+          ${state.yerelIlce?yerelIlceBarsHtml():''}
+        </div>
+      </div>
+    </div>`;
+  }
   html+=`<div style="margin-top:12px;">${yerelDetailHtml()}</div>`;
   html+=`</div></div>`;
   pane.innerHTML=html;
   const w24=$('#yerel-w24'); if (w24) w24.onchange=()=>{ state.yerelW24=parseFloat(w24.value); renderYerel(); };
   const flow=$('#yerel-flow'); if (flow) flow.onchange=()=>{ state.yerelFlow=parseFloat(flow.value); renderYerel(); };
+  const flowBig=$('#yerel-flow-big'); if (flowBig) flowBig.onchange=()=>{ state.yerelFlowBig=parseFloat(flowBig.value); renderYerel(); };
+  const majTh=$('#yerel-major-thresh'); if (majTh) majTh.onchange=()=>{ state.yerelBigMajorThresh=parseFloat(majTh.value); renderYerel(); };
   const pop=$('#yerel-pop'); if (pop) pop.onchange=()=>{ state.yerelPopBoost=parseFloat(pop.value); renderYerel(); };
   const setToggle=$('#yerel-set-toggle');
   if (setToggle) setToggle.onclick=()=>{ state.yerelSettingsOpen=state.yerelSettingsOpen!==false?false:true; renderYerel(); };
