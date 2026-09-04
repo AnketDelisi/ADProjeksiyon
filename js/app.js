@@ -1518,6 +1518,27 @@ function renderYerelCityMapAsync(){
     });
   });
 }
+// Broad historical voter-base used as the council lean proxy for a winning party in
+// the ilçe map. Parties carry their own council share; fictional/new breakoffs with
+// no council history (e.g. YENI) lean on their ideological carriers (CHP/DEM/...).
+const LEAN_PROXY = {
+  'YENI':['CHP','YENI','DEM','TIP','TKP','A'],
+  'CHP':['CHP','YENI','DEM','TIP','TKP','A'],
+  'AKP':['AKP','MHP','YRP','BBP','HUDA','SAADET','DEVA'],
+  'MHP':['MHP','AKP','BBP','HUDA','YRP','SAADET'],
+  'YRP':['YRP','SAADET','DEVA','AKP','MHP'],
+  'SAADET':['SAADET','YRP','DEVA'],
+  'DEVA':['DEVA','SAADET','YRP'],
+  'BBP':['BBP','MHP','AKP','HUDA'],
+  'HUDA':['HUDA','AKP','MHP'],
+  'IYI':['IYI','ZAFER','A','DP'],
+  'ZAFER':['ZAFER','A','IYI'],
+  'A':['A','IYI','ZAFER'],
+  'DEM':['DEM','TKP','TIP'],
+  'TIP':['TIP','CHP','TKP','DEM'],
+  'TKP':['TKP','CHP','TIP']
+};
+function leanProxyBloc(p){ return LEAN_PROXY[p]||[p]; }
 function renderYerelCityMap(prov, cityData, svgText){
   // Anchor to the province-wide mayor result (already finalized with ALL yerel
   // options: dropouts, majors/minors, multipliers, personal vote, pop boost, nerf,
@@ -1559,14 +1580,15 @@ function renderYerelCityMap(prov, cityData, svgText){
   }
   // decisive pair = actual top-2 candidates in the province result (handles cases
   // where a big party is dropped, e.g. AKP in some provinces). Districts tilt between
-  // these two using their council-bloc lean (bloc = CB_GROUP the party belongs to).
+  // these two using their council-bloc lean. The lean proxy is a *broad voter base*
+  // (not the party's own CB_GROUP): for fictional/new breakoffs with zero council
+  // history (e.g. YENI) we lean on their historical ideological carriers (CHP/DEM/...),
+  // otherwise the party carries its own council share.
   const rankedM=Object.entries(M).filter(([,v])=>v>0.05).sort((a,b)=>b[1]-a[1]);
   const W1=rankedM[0]?rankedM[0][0]:null, W2=rankedM[1]?rankedM[1][0]:null;
   if (!W1 || !W2 || W1===W2) return;
-  const yrBlocs=yerelBlocs();
-  const blocOfW1=yrBlocs[W1]||W1, blocOfW2=yrBlocs[W2]||W2;
-  const blocMembers1=CB_GROUPS[blocOfW1]||[W1];
-  const blocMembers2=CB_GROUPS[blocOfW2]||[W2];
+  const blocMembers1=leanProxyBloc(W1);
+  const blocMembers2=leanProxyBloc(W2);
   const c1b=blocMembers1.reduce((s,p)=>s+(C[p]||0),0);
   const c2b=blocMembers2.reduce((s,p)=>s+(C[p]||0),0);
   const CpRatio=Math.max(0.1,c1b)/Math.max(0.1,c2b);
