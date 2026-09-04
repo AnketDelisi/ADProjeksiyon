@@ -70,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelFlowBig:15, yerelBigMajorThresh:6, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelIlce:"", yerelIlceBarsMap:{}, yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
+  yerelW24:30, yerelFlow:5, yerelFlowBig:15, yerelBigMajorThresh:6, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelIlce:"", yerelIlceBarsMap:{}, yerelCityMapHtml:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -1630,6 +1630,7 @@ function renderYerelCityMap(prov, cityData, svgText){
   }
   state.yerelIlceBarsMap=ilceBars;
   const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners, colorsDict:PARTY_COLORS, tooltipDict:distTips, seatsData:{}, showBadges:false, customColors:distColors, uid:'yerel-city', svgFile:prov+'.svg', hiddenInputId:'hidden_yerel_city_input', detailSectionId:'yerel_prov_detail_section'});
+  state.yerelCityMapHtml=mapHtml;
   const box=document.getElementById('yerel-city-map-box');
   if (box){
     box.innerHTML=mapHtml;
@@ -2658,6 +2659,57 @@ async function downloadYerelInfographic(){
   downloadSvgAsPng('info-cont-yerel','yerel_secim_infografik.png');
 }
 
+// Regional infographic for a single büyükşehir mayoral race: party cards with
+// mayoral vote % + the (ilçe) coloured province map.
+async function generateYerelRegionalInfographicSvg(title, rows, winner, winnerPct, margin, dropped, mapSvgClean){
+  const cardSize=80, cardSpacing=22;
+  const parts=rows.slice(0,8);
+  const startX=(1200-(parts.length*cardSize+(parts.length-1)*cardSpacing))/2;
+  let svg='<svg width="1200" height="980" viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: #FFFFFF; font-family: \'Atlas Grotesk\', \'Helvetica Neue\', Helvetica, Arial, sans-serif;"><rect width="100%" height="100%" fill="#FFFFFF" />';
+  svg+=`<text x="600" y="34" text-anchor="middle" font-size="22" font-weight="900" fill="#1A1A1A" letter-spacing="1px">${esc(title)}</text>`;
+  if (winner){
+    const wColor=PARTY_COLORS[winner]||'#888';
+    svg+=`<text x="600" y="54" text-anchor="middle" font-size="13" font-weight="900" fill="#1A1A1A">Kazanan: <tspan fill="${wColor}">${esc(winner)}</tspan>  (%${winnerPct.toFixed(1)})  ·  Fark: %${Number(margin).toFixed(1)}</text>`;
+  }
+  let nW=0;
+  for (let idx=0; idx<parts.length; idx++){
+    const d=parts[idx], pName=d.party;
+    const color=PARTY_COLORS[pName]||'#888888', cx=startX+idx*(cardSize+cardSpacing);
+    const isW=pName===winner;
+    svg+=`<rect x="${cx+3}" y="${70+nW}" width="${cardSize}" height="${cardSize}" fill="#111827" rx="2"/><rect x="${cx}" y="${67+nW}" width="${cardSize}" height="${cardSize}" fill="${color}" stroke="#111827" stroke-width="${isW?3:1.5}" rx="2"/>`;
+    const li=await fetchLogoInner(pName);
+    if (li) svg+=inlineLogoSvg(li, cx+10, 77+nW, cardSize-20);
+    else svg+=`<text x="${cx+cardSize/2}" y="${67+nW+cardSize/2+7}" text-anchor="middle" fill="#FFFFFF" font-weight="900" font-size="18">${esc(pName)}</text>`;
+    svg+=`<text x="${cx+cardSize/2}" y="${172+nW}" text-anchor="middle" fill="#1A1A1A" font-weight="900" font-size="24">% ${d.vote.toFixed(1)}</text>`;
+    if (isW) svg+=`<text x="${cx+cardSize/2}" y="${192+nW}" text-anchor="middle" font-size="11" font-weight="900" fill="#1A8917">KAZANAN</text>`;
+    else if (d.isMajor) svg+=`<text x="${cx+cardSize/2}" y="${192+nW}" text-anchor="middle" font-size="10" font-weight="800" fill="#71716E">ANA ADAY</text>`;
+  }
+  svg+=`<svg x="30" y="215" width="1120" height="645">${mapSvgClean}</svg>`;
+  if (dropped && dropped.length){
+    svg+=`<text x="600" y="900" text-anchor="middle" font-size="12" font-weight="800" fill="#71716E">ÇEKİLEN: ${esc(dropped.join(', '))}</text>`;
+  }
+  svg+=await appLogoInline(40,932,280,32);
+  svg+='</svg>';
+  return svg;
+}
+async function downloadYerelRegionalInfographic(){
+  const prov=state.yerelProv;
+  if (!prov || !BUYUKSEHIR[prov]) return;
+  const r=state.yerelResults&&state.yerelResults.provs[prov];
+  if (!r) return;
+  const mapHtml=state.yerelCityMapHtml;
+  if (!mapHtml) return;
+  const majorSet={}; for (const m of (r.majors||[])) majorSet[m]=1;
+  const rows=Object.entries(r.shares).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1])
+    .map(([party,v])=>({party, vote:v, isMajor:!!majorSet[party]}));
+  const title=`${esc(get_display_label(prov)).toUpperCase()} BÜYÜKŞEHİR BELEDİYE BAŞKANLIĞI`;
+  const svg=await generateYerelRegionalInfographicSvg(title, rows, r.winner, r.winnerPct, r.margin, r.dropped, cleanMapForInfographic(mapHtml));
+  let cont=document.getElementById('info-cont-yerel-regional');
+  if (!cont){ cont=document.createElement('div'); cont.id='info-cont-yerel-regional'; cont.style.cssText='position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;'; document.body.appendChild(cont); }
+  cont.innerHTML=svg;
+  downloadSvgAsPng('info-cont-yerel-regional', get_display_label(prov).replace(/ /g,'_')+'_buyuksehir_infografik.png');
+}
+
 // ---------------- YEREL SEÇİM (il bazlı yerel model) ----------------
 // 2024 tabanı + ulusal senaryo girdisi üzerinden logit swing, il bazlı büyük/minör
 // ayrımı ve blok çekim akışı (CB mekaniğine benzer) ile belediye başkanı tahmini.
@@ -3130,6 +3182,7 @@ function renderYerel(){
         <div style="padding:0 14px">
           <div class="city-map-box" id="yerel-city-map-box"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
           ${state.yerelIlce?yerelIlceBarsHtml():''}
+          <button class="btn-download" id="yerel-regional-info" style="width:100%;height:44px;font-size:12px;margin-top:12px;">BÜYÜKŞEHİR İNFOGRAFİK İNDİR</button>
         </div>
       </div>
     </div>`;
@@ -3146,6 +3199,8 @@ function renderYerel(){
   if (setToggle) setToggle.onclick=()=>{ state.yerelSettingsOpen=state.yerelSettingsOpen!==false?false:true; renderYerel(); };
   const yerelInfo=$('#yerel-infographic');
   if (yerelInfo) yerelInfo.onclick=()=>downloadYerelInfographic();
+  const yerelRegionalInfo=$('#yerel-regional-info');
+  if (yerelRegionalInfo) yerelRegionalInfo.onclick=()=>downloadYerelRegionalInfographic();
   $$('#pane_yerel .yerel-ally-name').forEach(inp=>{
     inp.onchange=()=>{ state.yerelAlliances[parseInt(inp.getAttribute('data-i'),10)].name=inp.value; };
   });
