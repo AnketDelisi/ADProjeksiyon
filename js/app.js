@@ -1485,13 +1485,26 @@ function getActiveBars(){
 }
 function ilceBarsHtml(){
   const rows=state.detailIlceBarsMap&&state.detailIlceBarsMap[state.detailIlce]||[];
-  return `<div class="detail-bars">${rows.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>`;
+  return `<div class="detail-bars">${rows.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>`;
 }
 function geoBarHtml(b){
   const logoBox=`<div class="geo-logo" style="background:${b.color}"><img src="${b.logo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span style="display:none">${esc(b.party)}</span></div>`;
   const seats=b.no_seat?`<div class="geo-spacer"></div>`:`<div class="geo-seats-col"><div class="geo-seats"><span>${b.seats}</span></div><div class="geo-seat-delta" style="color:${b.seat_delta_color}">${esc(b.seat_delta)}</div></div>`;
   const votes=`<div class="geo-vote-col"><div class="geo-vote">${b.vote_text}</div><div class="geo-vote-delta" style="color:${b.vote_delta_color}">${esc(b.vote_delta)}</div></div>`;
   return `<div class="geo-row">${logoBox}<div class="geo-name" style="margin-left:8px">${esc(b.party)}</div>${seats}<div class="geo-bar"><div class="fill" style="width:${b.width};background:${b.color}"></div></div>${votes}</div>`;
+}
+
+// Themed detail row used for ilçe (district) details: matches the general yerel
+// result bars (plain bordered bar + text label + Decima tabular % + delta).
+function themedBarRowHtml(b){
+  const col=b.color||'#888';
+  const deltaTxt=b.vote_delta||'';
+  const deltaCol=b.vote_delta_color||'#9E9E9E';
+  return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
+    <div style="width:86px;font-weight:900;font-size:12px;color:${col};white-space:nowrap;">${esc(b.party)}</div>
+    <div style="flex:1;"><div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${b.width};background:${col};"></div></div></div>
+    <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">${b.vote_text}${deltaTxt?` <span style="font-size:10px;color:${deltaCol};">${esc(deltaTxt)}</span>`:''}</div>
+  </div>`;
 }
 
 function renderCityMapAsync(){
@@ -1643,7 +1656,7 @@ function yerelIlceBarsHtml(){
       <span style="font-weight:900;font-size:13px;">${esc(name)}</span>
       <span style="font-weight:800;font-size:10px;color:var(--c-text-muted);letter-spacing:0.5px;">BELEDİYE BAŞKANLIĞI</span>
     </div>
-    <div class="detail-bars">${rows.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+    <div class="detail-bars">${rows.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
   </div>`;
 }
 
@@ -2042,7 +2055,7 @@ function cbDetailSectionHtml(rn){
           <div class="di-name">${getIlceName(String(det.prov).replace(/\d+$/,''), det.ilceSelected)}</div>
           <button data-act="cb-clear-ilce" data-rn="${rn}">← İl Geneli</button>
         </div>
-        <div class="detail-bars">${ilceBars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+        <div class="detail-bars">${ilceBars.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
         `:`
         ${labels.length?`<div class="dist-nav">${labels.map((l,i)=>`<button class="dist-nav-trigger cb-dist-trigger" data-rn="${rn}" data-tab="${esc(l)}" ${l===det.activeTab?'data-active="true"':''}>${esc(l)}</button>`).join('')}</div>`:''}
         <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>

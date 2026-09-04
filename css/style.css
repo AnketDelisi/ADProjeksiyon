@@ -423,7 +423,7 @@ label.sb-label{display:block;font-weight:900;color:var(--c-text-muted);font-size
 
 /* ---------- Decima Mono Pro: numbers & statistics ---------- */
 [style*="font-variant-numeric:tabular-nums"]{font-family:var(--font-mono)}
-input.vote-input,input.sb-in,input.cb-num,.cb-block-tot,.cb-vote,.tip-pct,.tot-amt,.tot-note,.val,.cp-slider-row .val{font-family:var(--font-mono)}
+input.vote-input,input.sb-in,input.cb-num,.cb-block-tot,.cb-vote,.tip-pct,.tot-amt,.tot-note,.val,.cp-slider-row .val,.geo-seats span,.geo-vote-delta,.geo-seat-delta{font-family:var(--font-mono)}
 td[style*="text-align:right"]{font-family:var(--font-mono)}
 
 /* ---------- Neobrutalist range sliders ---------- */
