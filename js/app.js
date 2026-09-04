@@ -70,7 +70,7 @@ const state = {
   selectedFirms:[],
   hataPayi:2.0,
   mc:{running:false, titleHtml:"", faceoffHtml:"", confTableHtml:"", beeSvg:"", mapHtml:"", provRatings:[], tierFilter:"TÜMÜ"},
-  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
+  yerelW24:30, yerelFlow:5, yerelPopBoost:0, yerelAlliances:null, yerelMatrix:null, yerelResults:null, yerelProv:"", yerelIlce:"", yerelIlceBarsMap:{}, yerelOverrides:{}, yerelPop:{}, yerelMajors:{}, yerelDefectMode:'yeni', yerelCandStatus:{}, yerelCandPersonal:{},
   pollTableHtml:"",
   trendSvg:"",
   // computed after each run
@@ -1506,6 +1506,102 @@ function renderCityMapAsync(){
   });
 }
 
+// ---- yerel tab: Büyükşehir ilçe mayor map ----
+function renderYerelCityMapAsync(){
+  const prov=state.yerelProv;
+  if (!prov || !BUYUKSEHIR[prov]) return;
+  loadIlceData(prov).then(cityData=>{
+    if (!cityData) return;
+    loadIlceSvg(prov).then(svgText=>{
+      if (!svgText) return;
+      renderYerelCityMap(prov, cityData, svgText);
+    });
+  });
+}
+function renderYerelCityMap(prov, cityData, svgText){
+  const un=userNorm();
+  const baseObjN=_weightedBase(state.w18,state.w23,state.w24,state.customPartiesDef);
+  const allP=allParties();
+  const yearData={}, seats0={};
+  for (const n of Object.keys(cityData)){
+    const pMap={};
+    for (const P of Object.keys(cityData[n].parties)){
+      const v=cityData[n].parties[P];
+      pMap[P]={v18:v.v18||0,v23:v.v23||0,v24:v.v24||0};
+    }
+    yearData[n]=pMap; seats0[n]=0;
+  }
+  const baseRes=applyCustomPartiesJS(yearData, seats0, state.w18, state.w23, state.w24, state.customPartiesDef);
+  const cityRes=run_simulation({base:baseRes.base, seats:seats0}, baseObjN.nat, un, alliancesObj(), jointListsObj(), 0, state.allocation, REGIONAL_BOOSTS_DEFAULT, allP, Object.keys(yearData));
+  const distWinners={}, distColors={}, distTips={}, ilceBars={};
+  const ilsAlliances=alliancesObj();
+  const byDist={};
+  for (const r of cityRes){ (byDist[r.d]=byDist[r.d]||[]).push(r); }
+  for (const dist of Object.keys(byDist)){
+    const nDist=normalize_id(dist);
+    const grp=byDist[dist];
+    const top=[...grp].sort((a,b)=>b.new_vote_pct-a.new_vote_pct);
+    if (!top.length) continue;
+    let wParty, dCol;
+    if (state.mapMode==="İttifak Renklendirmesi"){
+      const dpcts={}; for (const r of grp) dpcts[r.p]=(dpcts[r.p]||0)+r.new_vote_pct;
+      const ents={},entOf={};
+      for (const aly of Object.keys(ilsAlliances)){
+        const live=ilsAlliances[aly].filter(p=>dpcts[p]!==undefined);
+        if (live.length>=1){ ents[aly]=live; for (const p of live) entOf[p]=aly; }
+      }
+      for (const p of allP){ if (!entOf[p]){ ents[p]=[p]; entOf[p]=p; } }
+      const natVotesAll={};
+      for (const r of cityRes) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
+      const cityReps={};
+      for (const e of Object.keys(ents)){
+        let rep=null;
+        for (const p of ents[e]){ if (!rep || (natVotesAll[p]||0)>(natVotesAll[rep]||0)) rep=p; }
+        cityReps[e]=rep;
+      }
+      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,dpcts)-entitySum(a,ents,dpcts))[0]:null;
+      const colorKey=winEnt?cityReps[winEnt]:'#888';
+      wParty=colorKey; dCol=PARTY_COLORS[colorKey]||'#888';
+    } else {
+      wParty=top[0].p;
+      dCol=get_heatmap_color(PARTY_COLORS[wParty]||'#888888', clamp(Math.max(0.3,Math.min(1.0,top[0].new_vote_pct/65)),0,1));
+    }
+    distWinners[nDist]=wParty; distColors[nDist]=dCol;
+    const dagg=aggRows(grp);
+    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov, nDist)}<span class="tip-total">BELEDİYE BAŞKANLIĞI</span>`, tooltipGroupRows(dagg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:0}))), true);
+    const ilceBase=cityData[nDist];
+    const b23=ilceBase&&ilceBase.parties?Object.fromEntries(Object.entries(ilceBase.parties).map(([p,v])=>[p,v.v23||0])):{};
+    ilceBars[nDist]=buildDistrictBarRows(grp.map(r=>({party:r.p,new_vote_pct:r.new_vote_pct,seats_won:0})), b23, {}, false, null);
+  }
+  state.yerelIlceBarsMap=ilceBars;
+  const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners, colorsDict:PARTY_COLORS, tooltipDict:distTips, seatsData:{}, showBadges:false, customColors:distColors, uid:'yerel-city', svgFile:prov+'.svg', hiddenInputId:'hidden_yerel_city_input', detailSectionId:'yerel_prov_detail_section'});
+  const box=document.getElementById('yerel-city-map-box');
+  if (box){
+    box.innerHTML=mapHtml;
+    bindMapWrapper('yerel-city', norm=>selectYerelIlce(norm));
+  }
+}
+function selectYerelIlce(norm){
+  state.yerelIlce=norm;
+  renderYerel();
+}
+function clearYerelIlce(){
+  state.yerelIlce="";
+  renderYerel();
+}
+function yerelIlceBarsHtml(){
+  const rows=state.yerelIlceBarsMap&&state.yerelIlceBarsMap[state.yerelIlce]||[];
+  const name=getIlceName(state.yerelProv, state.yerelIlce);
+  return `<div style="padding:0 2px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <button onclick="__clearYerelIlce()" style="border:2px solid #111827;background:#F0EFED;font-weight:900;font-size:11px;padding:3px 8px;cursor:pointer;">← İl Geneli</button>
+      <span style="font-weight:900;font-size:13px;">${esc(name)}</span>
+      <span style="font-weight:800;font-size:10px;color:var(--c-text-muted);letter-spacing:0.5px;">BELEDİYE BAŞKANLIĞI</span>
+    </div>
+    <div class="detail-bars">${rows.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+  </div>`;
+}
+
 // ---------------- province results table (port) ----------------
 function buildProvinceResultsHtml(){
   if (!state.simResults.length || !state.fullResults.length) return "";
@@ -1600,6 +1696,7 @@ function bindSegNav(){
 
 function cssSafe(s){ return s.replace(/[^A-Za-z0-9_-]/g,'_'); }
 window.__clearIlce = ()=>clearDetailIlce();
+window.__clearYerelIlce = ()=>clearYerelIlce();
 
 // ---------------- CB (CUMHURBAŞKANLIĞI) full port ----------------
 function cbDetailBlank(){ return {prov:"",name:"",summary:[],mapHtml:"",tabLabels:[],barsMap:{},activeTab:"",activeBars:[],ilceSelected:"",ilceName:"",ilceBarsMap:{}}; }
@@ -2681,6 +2778,17 @@ function yerelDetailHtml(){
   html+=yerelCandidatesHtml(r.prov, r);
   html+=`</div>`;
   html+=yerelCouncilHtml(r);
+  if (r.big){
+    html+=`<div style="margin-top:12px;width:100%;">
+      <div class="sb-card shadow">
+        <div class="sb-kicker"><div class="bar"></div><div class="t">İLÇE BELEDİYE BAŞKANLIĞI HARİTASI</div></div>
+        <div style="padding:0 14px">
+          <div class="city-map-box" id="yerel-city-map-box"><div style="display:flex;justify-content:center;align-items:center;height:100%;color:#777;font-weight:bold;">İlçe haritası yükleniyor...</div></div>
+          ${state.yerelIlce?yerelIlceBarsHtml():''}
+        </div>
+      </div>
+    </div>`;
+  }
   return html;
 }
 function yerelAllyOverridesHtml(prov){
@@ -2980,7 +3088,7 @@ function renderYerel(){
   const mxToggle=$('#yerel-mx-toggle');
   if (mxToggle) mxToggle.onclick=()=>{ state.yerelMatrixOpen=!state.yerelMatrixOpen; renderYerel(); };
   const mw=$('#map-wrapper-yerel');
-  if (mw) bindMapWrapper('yerel', norm=>{ state.yerelProv=norm; renderYerel(); });
+  if (mw) bindMapWrapper('yerel', norm=>{ state.yerelProv=norm; state.yerelIlce=""; renderYerel(); });
   $$('#pane_yerel .yerel-ally-ovr').forEach(sel=>{
     sel.onchange=()=>{
       const prov=sel.getAttribute('data-prov'), p=sel.getAttribute('data-party'), v=sel.value;
@@ -3075,6 +3183,9 @@ function renderYerel(){
   $$('#pane_yerel .sb-collapse-head').forEach(h=>{
     h.addEventListener('click',()=>{ h.parentElement.setAttribute('data-open', String(h.parentElement.getAttribute('data-open')!=='true')); });
   });
+  if (state.yerelProv && BUYUKSEHIR[state.yerelProv]){
+    window.setTimeout(()=>renderYerelCityMapAsync(), 30);
+  }
 }
 
 // ---------------- OLASILIK (Monte Carlo — port of app.py run_mc) ----------------
