@@ -1485,26 +1485,13 @@ function getActiveBars(){
 }
 function ilceBarsHtml(){
   const rows=state.detailIlceBarsMap&&state.detailIlceBarsMap[state.detailIlce]||[];
-  return `<div class="detail-bars">${rows.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>`;
+  return `<div class="detail-bars">${rows.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>`;
 }
 function geoBarHtml(b){
   const logoBox=`<div class="geo-logo" style="background:${b.color}"><img src="${b.logo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span style="display:none">${esc(b.party)}</span></div>`;
   const seats=b.no_seat?`<div class="geo-spacer"></div>`:`<div class="geo-seats-col"><div class="geo-seats"><span>${b.seats}</span></div><div class="geo-seat-delta" style="color:${b.seat_delta_color}">${esc(b.seat_delta)}</div></div>`;
   const votes=`<div class="geo-vote-col"><div class="geo-vote">${b.vote_text}</div><div class="geo-vote-delta" style="color:${b.vote_delta_color}">${esc(b.vote_delta)}</div></div>`;
   return `<div class="geo-row">${logoBox}<div class="geo-name" style="margin-left:8px">${esc(b.party)}</div>${seats}<div class="geo-bar"><div class="fill" style="width:${b.width};background:${b.color}"></div></div>${votes}</div>`;
-}
-
-// Themed detail row used for ilçe (district) details: matches the general yerel
-// result bars (plain bordered bar + text label + Decima tabular % + delta).
-function themedBarRowHtml(b){
-  const col=b.color||'#888';
-  const deltaTxt=b.vote_delta||'';
-  const deltaCol=b.vote_delta_color||'#9E9E9E';
-  return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
-    <div style="width:86px;font-weight:900;font-size:12px;color:${col};white-space:nowrap;">${esc(b.party)}</div>
-    <div style="flex:1;"><div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${b.width};background:${col};"></div></div></div>
-    <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">${b.vote_text}${deltaTxt?` <span style="font-size:10px;color:${deltaCol};">${esc(deltaTxt)}</span>`:''}</div>
-  </div>`;
 }
 
 function renderCityMapAsync(){
@@ -1637,10 +1624,9 @@ function renderYerelCityMap(prov, cityData, svgText){
     const wParty=top[0][0], pct=top[0][1];
     distWinners[nDist]=wParty;
     distColors[nDist]=get_heatmap_color(PARTY_COLORS[wParty]||'#888888',clamp(Math.max(0.3,Math.min(1.0,pct/65)),0,1));
-    const tipRows=top.filter(x=>x[1]>0).slice(0,6).map(([p,v])=>({party:p,new_vote_pct:v,seats_won:0}));
+    const tipRows=top.filter(x=>x[1]>0).map(([p,v])=>({party:p,new_vote_pct:v,seats_won:0}));
     distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov,nDist)}`,tooltipGroupRows(tipRows),true);
-    const b23=cityData[n].parties?Object.fromEntries(Object.entries(cityData[n].parties).map(([p,v])=>[p,v.v23||0])):{};
-    ilceBars[nDist]=buildDistrictBarRows(tipRows.map(({party,new_vote_pct})=>({party,new_vote_pct,seats_won:0})),b23,{},false,null);
+    ilceBars[nDist]=buildYerelIlceBars(D, provRes.majors||[]);
   }
   state.yerelIlceBarsMap=ilceBars;
   const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners, colorsDict:PARTY_COLORS, tooltipDict:distTips, seatsData:{}, showBadges:false, customColors:distColors, uid:'yerel-city', svgFile:prov+'.svg', hiddenInputId:'hidden_yerel_city_input', detailSectionId:'yerel_prov_detail_section'});
@@ -1661,13 +1647,36 @@ function clearYerelIlce(){
 function yerelIlceBarsHtml(){
   const rows=state.yerelIlceBarsMap&&state.yerelIlceBarsMap[state.yerelIlce]||[];
   const name=getIlceName(state.yerelProv, state.yerelIlce);
+  const maxV=rows.length?Math.max(...rows.map(r=>r.vote)):1;
   return `<div style="padding:0 2px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
       <button onclick="__clearYerelIlce()" style="border:2px solid #111827;background:#F0EFED;font-weight:900;font-size:11px;padding:3px 8px;cursor:pointer;">← İl Geneli</button>
       <span style="font-weight:900;font-size:13px;">${esc(name)}</span>
-      <span style="font-weight:800;font-size:10px;color:var(--c-text-muted);letter-spacing:0.5px;">BELEDİYE BAŞKANLIĞI</span>
     </div>
-    <div class="detail-bars">${rows.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+    <div class="detail-bars">${rows.map(r=>yerelIlceBarRowHtml(r,maxV)).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+  </div>`;
+}
+// All parties for a yerel ilçe, aggregated with the same "others" rule as the
+// province-wide results: any party with a province-wide major status or >=1% is a
+// row; the remaining sub-threshold parties are merged into one "DİĞER" row.
+function buildYerelIlceBars(shares, majors){
+  const rows=Object.entries(shares).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const majorSet={}; for (const m of majors) majorSet[m]=1;
+  const big=rows.filter(([p,v])=>v>=1||majorSet[p]);
+  const small=rows.filter(([p,v])=>v<1&&!majorSet[p]);
+  const othersV=small.reduce((a,[,v])=>a+v,0);
+  const items=big.map(([p,v])=>({party:p, vote:v, isMajor:majorSet[p], color:PARTY_COLORS[p]||'#888'}));
+  if (othersV>0.05) items.push({party:'DİĞER', vote:othersV, isMajor:false, color:'#9E9E9E'});
+  return items;
+}
+function yerelIlceBarRowHtml(b, maxV){
+  const col=b.color||'#888';
+  const label=b.isMajor?`${esc(b.party)} ★`:`${esc(b.party)}`;
+  const w=(maxV>0?Math.min(100,(b.vote/maxV)*100):0).toFixed(1);
+  return `<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;">
+    <div style="width:86px;font-weight:${b.isMajor?900:700};font-size:12px;color:${b.isMajor?col:'#64748B'};white-space:nowrap;">${label}</div>
+    <div style="flex:1;"><div style="height:14px;border:2px solid #111827;background:#F0EFED;"><div style="height:100%;width:${w}%;background:${col};"></div></div></div>
+    <div style="width:110px;text-align:right;font-weight:900;font-size:12px;font-variant-numeric:tabular-nums;">%${b.vote.toFixed(1)}</div>
   </div>`;
 }
 
@@ -2066,7 +2075,7 @@ function cbDetailSectionHtml(rn){
           <div class="di-name">${getIlceName(String(det.prov).replace(/\d+$/,''), det.ilceSelected)}</div>
           <button data-act="cb-clear-ilce" data-rn="${rn}">← İl Geneli</button>
         </div>
-        <div class="detail-bars">${ilceBars.map(themedBarRowHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
+        <div class="detail-bars">${ilceBars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
         `:`
         ${labels.length?`<div class="dist-nav">${labels.map((l,i)=>`<button class="dist-nav-trigger cb-dist-trigger" data-rn="${rn}" data-tab="${esc(l)}" ${l===det.activeTab?'data-active="true"':''}>${esc(l)}</button>`).join('')}</div>`:''}
         <div class="detail-bars">${bars.map(geoBarHtml).join('')||'<div class="big-note">Bu ilçe için sonuç bulunamadı.</div>'}</div>
