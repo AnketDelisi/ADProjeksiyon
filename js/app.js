@@ -1618,7 +1618,18 @@ function renderYerelCityMap(prov, cityData, svgText){
     const R=(pY/pA)*Math.pow(rNorm,lambda);
     let d1=S*R/(1+R), d2=S*1/(1+R);
     const D={}; D[W1]=d1; D[W2]=d2;
-    for (const p of others) D[p]=M[p]||0;
+    // Non-decisive parties follow their own district council lean vs the province
+    // council mean, so e.g. TIP is stronger in left-leaning districts and weaker
+    // elsewhere -- not the same flat province share in every ilçe.
+    for (const p of others){
+      const mp=M[p]||0;
+      if (mp<=0){ D[p]=0; continue; }
+      const prof2=distProfile[n];
+      const dLean=(prof2&&prof2[p])||0;
+      const cLean=C[p]||0;
+      const r=clamp(dLean/Math.max(0.1,cLean),0.5,1.6);
+      D[p]=mp*r;
+    }
     const tD=Object.values(D).reduce((a,b)=>a+b,0);
     for (const p of Object.keys(D)) D[p]=tD>0?D[p]/tD*100:0;
     const top=Object.entries(D).sort((a,b)=>b[1]-a[1]);
