@@ -1519,59 +1519,62 @@ function renderYerelCityMapAsync(){
   });
 }
 function renderYerelCityMap(prov, cityData, svgText){
-  const un=userNorm();
-  const baseObjN=_weightedBase(state.w18,state.w23,state.w24,state.customPartiesDef);
-  const allP=allParties();
-  const yearData={}, seats0={};
+  // Anchor to the province-wide mayor result (already finalized with ALL yerel
+  // options: dropouts, majors/minors, multipliers, personal vote, pop boost, nerf,
+  // alliance dropout). Each ilçe tilts that result by its own council lean, so ilçe
+  // results reflect the province projection while still differentiating by district.
+  const provRes=state.yerelResults&&state.yerelResults.provs[prov];
+  const M=provRes?provRes.shares:null;
+  if (!M) return;
+  // weighted district council profiles (same year weights as the model)
+  const totW=(state.w18+state.w23+state.w24)||100;
+  const wn18=state.w18/totW, wn23=state.w23/totW, wn24=state.w24/totW;
+  const distProfile={}, partySet={};
   for (const n of Object.keys(cityData)){
-    const pMap={};
-    for (const P of Object.keys(cityData[n].parties)){
-      const v=cityData[n].parties[P];
-      pMap[P]={v18:v.v18||0,v23:v.v23||0,v24:v.v24||0};
+    const parties=cityData[n].parties||{};
+    const prof={};
+    for (const P of Object.keys(parties)){
+      const v=parties[P];
+      const wv=(v.v18||0)*wn18+(v.v23||0)*wn23+(v.v24||0)*wn24;
+      if (wv>0){ prof[P]=wv; partySet[P]=1; }
     }
-    yearData[n]=pMap; seats0[n]=0;
+    const t=Object.values(prof).reduce((a,b)=>a+b,0);
+    for (const P of Object.keys(prof)) prof[P]=t>0?prof[P]/t*100:0;
+    distProfile[n]=prof;
   }
-  const baseRes=applyCustomPartiesJS(yearData, seats0, state.w18, state.w23, state.w24, state.customPartiesDef);
-  const cityRes=run_simulation({base:baseRes.base, seats:seats0}, baseObjN.nat, un, alliancesObj(), jointListsObj(), 0, state.allocation, REGIONAL_BOOSTS_DEFAULT, allP, Object.keys(yearData));
-  const distWinners={}, distColors={}, distTips={}, ilceBars={};
-  const ilsAlliances=alliancesObj();
-  const byDist={};
-  for (const r of cityRes){ (byDist[r.d]=byDist[r.d]||[]).push(r); }
-  for (const dist of Object.keys(byDist)){
-    const nDist=normalize_id(dist);
-    const grp=byDist[dist];
-    const top=[...grp].sort((a,b)=>b.new_vote_pct-a.new_vote_pct);
-    if (!top.length) continue;
-    let wParty, dCol;
-    if (state.mapMode==="İttifak Renklendirmesi"){
-      const dpcts={}; for (const r of grp) dpcts[r.p]=(dpcts[r.p]||0)+r.new_vote_pct;
-      const ents={},entOf={};
-      for (const aly of Object.keys(ilsAlliances)){
-        const live=ilsAlliances[aly].filter(p=>dpcts[p]!==undefined);
-        if (live.length>=1){ ents[aly]=live; for (const p of live) entOf[p]=aly; }
-      }
-      for (const p of allP){ if (!entOf[p]){ ents[p]=[p]; entOf[p]=p; } }
-      const natVotesAll={};
-      for (const r of cityRes) natVotesAll[r.p]=(natVotesAll[r.p]||0)+r.new_vote_pct;
-      const cityReps={};
-      for (const e of Object.keys(ents)){
-        let rep=null;
-        for (const p of ents[e]){ if (!rep || (natVotesAll[p]||0)>(natVotesAll[rep]||0)) rep=p; }
-        cityReps[e]=rep;
-      }
-      const winEnt=Object.keys(ents).length?Object.keys(ents).sort((a,b)=>entitySum(b,ents,dpcts)-entitySum(a,ents,dpcts))[0]:null;
-      const colorKey=winEnt?cityReps[winEnt]:'#888';
-      wParty=colorKey; dCol=PARTY_COLORS[colorKey]||'#888';
-    } else {
-      wParty=top[0].p;
-      dCol=get_heatmap_color(PARTY_COLORS[wParty]||'#888888', clamp(Math.max(0.3,Math.min(1.0,top[0].new_vote_pct/65)),0,1));
+  // province council reference = mean of district profiles (self-consistent lean base)
+  const C={};
+  for (const P of Object.keys(partySet)) C[P]=0;
+  const nD=Object.keys(distProfile).length||1;
+  for (const P of Object.keys(C)){
+    let s=0;
+    for (const d of Object.keys(distProfile)) s+=(distProfile[d][P]||0);
+    C[P]=s/nD;
+  }
+  // district tilt strength (0=all provinces identical, 1=full lean separation)
+  const k=0.7;
+  const distWinners={},distColors={},distTips={},ilceBars={};
+  for (const n of Object.keys(distProfile)){
+    const nDist=normalize_id(n);
+    const prof=distProfile[n];
+    const D={};
+    for (const P of Object.keys(partySet)){
+      const m=M[P]||0;
+      const lean=C[P]>0?Math.max(0.1,(prof[P]||0)/C[P]):1;
+      D[P]=m*Math.pow(lean,k);
     }
-    distWinners[nDist]=wParty; distColors[nDist]=dCol;
-    const dagg=aggRows(grp);
-    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov, nDist)}<span class="tip-total">BELEDİYE BAŞKANLIĞI</span>`, tooltipGroupRows(dagg.map(o=>({party:o.party,new_vote_pct:o.pct,seats_won:0}))), true);
-    const ilceBase=cityData[nDist];
-    const b23=ilceBase&&ilceBase.parties?Object.fromEntries(Object.entries(ilceBase.parties).map(([p,v])=>[p,v.v23||0])):{};
-    ilceBars[nDist]=buildDistrictBarRows(grp.map(r=>({party:r.p,new_vote_pct:r.new_vote_pct,seats_won:0})), b23, {}, false, null);
+    for (const P of Object.keys(M)) if (D[P]===undefined) D[P]=M[P]||0;
+    const tD=Object.values(D).reduce((a,b)=>a+b,0);
+    for (const P of Object.keys(D)) D[P]=tD>0?D[P]/tD*100:0;
+    const top=Object.entries(D).sort((a,b)=>b[1]-a[1]);
+    if (!top.length) continue;
+    const wParty=top[0][0], pct=top[0][1];
+    distWinners[nDist]=wParty;
+    distColors[nDist]=get_heatmap_color(PARTY_COLORS[wParty]||'#888888',clamp(Math.max(0.3,Math.min(1.0,pct/65)),0,1));
+    const tipRows=top.filter(x=>x[1]>0).slice(0,6).map(([p,v])=>({party:p,new_vote_pct:v,seats_won:0}));
+    distTips[nDist]=tooltipHtmlFromRows(`${getIlceName(prov,nDist)}<span class="tip-total">BELEDİYE BAŞKANLIĞI</span>`,tooltipGroupRows(tipRows),true);
+    const b23=cityData[n].parties?Object.fromEntries(Object.entries(cityData[n].parties).map(([p,v])=>[p,v.v23||0])):{};
+    ilceBars[nDist]=buildDistrictBarRows(tipRows.map(({party,new_vote_pct})=>({party,new_vote_pct,seats_won:0})),b23,{},false,null);
   }
   state.yerelIlceBarsMap=ilceBars;
   const mapHtml=renderColoredSvg(svgText, {provWinners:{}, distWinners, colorsDict:PARTY_COLORS, tooltipDict:distTips, seatsData:{}, showBadges:false, customColors:distColors, uid:'yerel-city', svgFile:prov+'.svg', hiddenInputId:'hidden_yerel_city_input', detailSectionId:'yerel_prov_detail_section'});
